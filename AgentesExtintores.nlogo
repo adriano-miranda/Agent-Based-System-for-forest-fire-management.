@@ -64,9 +64,6 @@ patches-own
   fireX
   fireY
 
-  fireTruckX
-  fireTruckY
-
   windX
   windY
 
@@ -142,11 +139,12 @@ to setup
       set dynawind? true
       set wind-direction 55
       set num-firetrucks 2
+      ;Cargar el mapa
       load-GIS-5
       landscape
 
+      ;;Creación de camiones de bomberos
       create-fire-trucks num-firetrucks [
-
       set fire-trucks-radius 2  ;radio de extinción del incendio de camiones de bomberos
       set truck-size 2
 
@@ -167,8 +165,6 @@ to setup
       landscape-validation
       ask patches with [ignition?] [ignite]
     ]
-
-
     []
   )
 
@@ -407,6 +403,7 @@ to dynawind ; someday I should make this read from a table....
 
       []
   )]
+
   if scenario = 5 [
     (ifelse
       ticks <= 60 * rescale
@@ -647,8 +644,6 @@ to landscape
     ]
 
   ]
-
-
 end
 
 ;;Visualización dependiendo del fuel y la inflamabilidad
@@ -749,7 +744,6 @@ to landscape-validation ; for FBP fuel type maps provided for all of Canada, the
         if Visualisation = "FBPscheme" [set pcolor [255 211 127]]
         ;set pcolor [127 154 138]
       ]
-
 
       [set flam 0 set fuel 0]
     )
@@ -882,6 +876,7 @@ to move-fire-trucks
   ]
 end
 
+;;comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
   ask fire-trucks [
     let fires-in-radius fires in-radius fire-trucks-radius
@@ -977,7 +972,7 @@ to check-cell
   ]
 end
 
-;;Función de propagación del fuego (como cuando los conejos se reproducen)
+;;Función de propagación del fuego (como cuando los conejos se reproducen en el modelo de comportamiento de conejos)
 to propagate
   ; Creates new fires when fire agents enter a new cell
   let mycolor color
@@ -1079,6 +1074,7 @@ to vectorise
       set heading [winddir] of patch-here]]
 end
 
+;;Si se activa esta opción se muestran los vectores a medida que se van calculando
 to vectorshow
 
   ask vectors
@@ -1115,8 +1111,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 0
 177
@@ -1154,7 +1150,7 @@ wind-speed
 wind-speed
 0.01
 200
-15.0
+16.0
 1
 1
 NIL
@@ -1938,13 +1934,13 @@ Line -16777216 false 150 105 105 60
 
 car
 false
-0
-Polygon -7500403 true true 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
+4
+Polygon -7500403 true false 300 180 279 164 261 144 240 135 226 132 213 106 203 84 185 63 159 50 135 50 75 60 0 150 0 165 0 225 300 225 300 180
 Circle -16777216 true false 180 180 90
 Circle -16777216 true false 30 180 90
 Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
-Circle -7500403 true true 47 195 58
-Circle -7500403 true true 195 195 58
+Circle -7500403 true false 47 195 58
+Circle -7500403 true false 195 195 58
 
 circle
 false
