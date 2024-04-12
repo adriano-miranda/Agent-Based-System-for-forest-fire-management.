@@ -20,10 +20,7 @@ globals
   RoS-list
   avgRoS
   area
-
-  num-firetrucks
   max-density
-
   t
   t30
 ]
@@ -138,20 +135,11 @@ to setup
       set stoptime 1530 * rescale ; 25.5 hours between ignition ans start of firefighting
       set dynawind? true
       set wind-direction 55
-      set num-firetrucks 2
+
       ;Cargar el mapa
       load-GIS-5
       landscape
 
-      ;;Creación de camiones de bomberos
-      create-fire-trucks num-firetrucks [
-      set fire-trucks-radius 2  ;radio de extinción del incendio de camiones de bomberos
-      set truck-size 2
-
-      set size truck-size ; Tamaño de los camiones de bomberos
-      set color yellow      ; Asigna un color rojo al camión de bomberos
-      setxy random-xcor random-ycor  ; Coloca aleatoriamente los camiones de bomberos en la pantalla
-      ]
       ask patches with [ignition?] [ignite]
     ]
 
@@ -511,6 +499,20 @@ to click-ignite
     stop]
 end
 
+to click-firetruck
+  if mouse-down?
+  [
+    ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
+    create-fire-trucks 1[
+      set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set truck-size 2
+      set size truck-size ; Tamaño de los camiones de bomberos
+      set color yellow ; Asigna un color amarillo al camión de bomberos
+      setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
+    ]
+  ]
+end
+
 to go
   tick
   if not any? fires
@@ -521,7 +523,7 @@ to go
   let RoS-at-tick mean [RoS] of fires
   set RoS-list lput RoS-at-tick RoS-list
 
-  if dynawind? [dynawind]
+  ;;if dynawind? [dynawind]
 
   wind-calc
   spread
@@ -872,7 +874,7 @@ to move-fire-trucks
   ask fire-trucks [
     let nearest-fire min-one-of fires [distance myself]
     face nearest-fire
-    fd 0.5  ;;Velocidad del camión de bomberos en casillas por tick de reloj
+    fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
   ]
 end
 
@@ -1150,7 +1152,7 @@ wind-speed
 wind-speed
 0.01
 200
-16.0
+27.01
 1
 1
 NIL
@@ -1176,7 +1178,7 @@ wind-direction
 wind-direction
 0
 360
-90.0
+55.0
 5
 1
 NIL
@@ -1293,7 +1295,7 @@ fuel-level
 fuel-level
 0
 1
-0.5
+1.0
 0.1
 1
 NIL
@@ -1308,7 +1310,7 @@ flam-level
 flam-level
 0
 1
-0.5
+1.0
 0.1
 1
 NIL
@@ -1835,15 +1837,57 @@ NIL
 1
 
 MONITOR
-52
-643
-112
-688
+128
+164
+188
+209
 ticks/sec
 performance
 4
 1
 11
+
+TEXTBOX
+12
+623
+162
+641
+FIRETRUCKS
+10
+0.0
+1
+
+SLIDER
+9
+672
+181
+705
+velocity
+velocity
+0
+1
+0.3
+0.1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+10
+639
+113
+672
+Click-firetruck
+click-firetruck
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
