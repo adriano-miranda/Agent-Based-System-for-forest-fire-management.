@@ -527,7 +527,12 @@ to go
 
   wind-calc
   spread
-  move-fire-trucks
+
+  if Estrategia = "Nearest"[move-fire-trucks-nearest]
+  if Estrategia = "Further"[move-fire-trucks-further]
+  if Estrategia = "Higher RoS"[move-fire-trucks-MaxRoS]
+  if Estrategia = "Lower RoS"[move-fire-trucks-MinRoS]
+
   check-and-extinguish-fires
   consume
 
@@ -869,12 +874,54 @@ to fSlope-Aspect
   set fireY 3 * y-slope + fireY
 end
 
-;;función para la velocidad de los camiones de bomberos
-to move-fire-trucks
-  ask fire-trucks [
-    let nearest-fire min-one-of fires [distance myself]
-    face nearest-fire
-    fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+;;Estrategia de camiones de bomberos para dirgirse al más cercano
+to move-fire-trucks-nearest
+  if any? fires[
+    ask fire-trucks [
+      let nearest-fire min-one-of fires [distance myself]
+      face nearest-fire
+      fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+    ]
+  ] if not any? fires [
+    print "No hay fuegos por apagar."
+  ]
+end
+
+to move-fire-trucks-further
+  if any? fires[
+    ask fire-trucks [
+      let further-fire max-one-of fires [distance myself]
+      face further-fire
+      fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+    ]
+  ] if not any? fires [
+    print "No hay fuegos por apagar."
+  ]
+end
+
+;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
+to move-fire-trucks-MaxRoS
+  if any? fires [
+    let max-RoS-fire max-one-of fires [RoS]
+    ask fire-trucks [
+      face max-RoS-fire
+      fd velocity
+    ]
+  ] if not any? fires [
+    print "No hay fuegos que apagar"
+  ]
+end
+
+;;Estrategia de camiones de bomberos para dirigirse a fuego de menor RoS
+to move-fire-trucks-MinRoS
+  if any? fires [
+    let min-RoS-fire min-one-of fires [RoS]
+    ask fire-trucks [
+      face min-RoS-fire
+      fd velocity
+    ]
+  ] if not any? fires [
+    print "No hay fuegos que apagar"
   ]
 end
 
@@ -1030,7 +1077,6 @@ to show-comparison
     ]
   ]
   ;let vertex-list gis:vertex-lists-of item 0 features
-
 end
 
 ;;Para exportar la screenshot del escenario del modelo en la carpeta Raster_out
@@ -1152,7 +1198,7 @@ wind-speed
 wind-speed
 0.01
 200
-27.01
+13.01
 1
 1
 NIL
@@ -1295,7 +1341,7 @@ fuel-level
 fuel-level
 0
 1
-1.0
+0.5
 0.1
 1
 NIL
@@ -1310,7 +1356,7 @@ flam-level
 flam-level
 0
 1
-1.0
+0.5
 0.1
 1
 NIL
@@ -1682,7 +1728,7 @@ SWITCH
 43
 spotting?
 spotting?
-1
+0
 1
 -1000
 
@@ -1858,10 +1904,10 @@ FIRETRUCKS
 1
 
 SLIDER
-9
-672
-181
-705
+8
+727
+180
+760
 velocity
 velocity
 0
@@ -1887,6 +1933,16 @@ NIL
 NIL
 NIL
 NIL
+1
+
+CHOOSER
+9
+678
+174
+723
+Estrategia
+Estrategia
+"Nearest" "Further" "Higher RoS" "Lower RoS"
 1
 
 @#$#@#$#@
