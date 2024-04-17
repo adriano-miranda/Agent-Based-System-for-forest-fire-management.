@@ -21,6 +21,11 @@ globals
   avgRoS
   area
   max-density
+
+  contador-ticks  ;;Para contar ticks de reloj (para el delay apagando fuegos)
+  apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
+  firetruck-created ;;Flag para saber si se ha creado un firetruck para click-Fire-truck
+
   t
   t30
 ]
@@ -86,6 +91,9 @@ to setup
   ca
   set dynawind? false
   set RoS-list []
+  set contador-ticks 0
+  set apagando_fuego false
+  set firetruck-created false
 
   (ifelse
     scenario = 0  ; manual wind speed and direction input
@@ -139,7 +147,6 @@ to setup
       ;Cargar el mapa
       load-GIS-5
       landscape
-
       ask patches with [ignition?] [ignite]
     ]
 
@@ -500,16 +507,24 @@ to click-ignite
 end
 
 to click-firetruck
-  if mouse-down?
-  [
+
+    ;;Inicia variable al soltar el botón del ratón
+    if mouse-down? and (firetruck-created = false)
+    [
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
       set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
       set truck-size 2
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
+      fd Fire-trucks-speed
       setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
     ]
+    set firetruck-created true
+  ]
+  if not mouse-down? ;;Reinicia variable al soltar botón del ratón
+  [
+    set firetruck-created false
   ]
 end
 
@@ -524,16 +539,11 @@ to go
   set RoS-list lput RoS-at-tick RoS-list
 
   ;;if dynawind? [dynawind]
-
   wind-calc
   spread
-
-  if Estrategia = "Nearest"[move-fire-trucks-nearest]
-  if Estrategia = "Further"[move-fire-trucks-further]
-  if Estrategia = "Higher RoS"[move-fire-trucks-MaxRoS]
-  if Estrategia = "Lower RoS"[move-fire-trucks-MinRoS]
-
-  check-and-extinguish-fires
+  estrategia
+  ;;check-and-extinguish-fires
+  if apagando_fuego = true [contar-ticks]
   consume
 
   if vectorshow? [vectorshow] ; diagnostic
@@ -548,6 +558,16 @@ to go
 
 end
 
+to contar-ticks
+  set contador-ticks contador-ticks + 1
+end
+
+to estrategia
+    if Estrategy = "MIN_DISTANCE"[move-fire-trucks-nearest]
+    if Estrategy = "MAX_DISTANCE"[move-fire-trucks-further]
+    if Estrategy = "MAX_RoS"[move-fire-trucks-MaxRoS]
+    if Estrategy = "MIN_RoS"[move-fire-trucks-MinRoS]
+end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
 ;;Visualización "Terrain": depende de slope
@@ -874,13 +894,17 @@ to fSlope-Aspect
   set fireY 3 * y-slope + fireY
 end
 
+
 ;;Estrategia de camiones de bomberos para dirgirse al más cercano
 to move-fire-trucks-nearest
   if any? fires[
     ask fire-trucks [
       let nearest-fire min-one-of fires [distance myself]
       face nearest-fire
-      fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+
+      apagar_fuego
+
+      check-and-extinguish-fires
     ]
   ] if not any? fires [
     print "No hay fuegos por apagar."
@@ -892,7 +916,10 @@ to move-fire-trucks-further
     ask fire-trucks [
       let further-fire max-one-of fires [distance myself]
       face further-fire
-      fd velocity  ;;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+
+      apagar_fuego
+
+      check-and-extinguish-fires
     ]
   ] if not any? fires [
     print "No hay fuegos por apagar."
@@ -901,41 +928,66 @@ end
 
 ;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
 to move-fire-trucks-MaxRoS
-  if any? fires [
-    let max-RoS-fire max-one-of fires [RoS]
+  if any? fires[
     ask fire-trucks [
-      face max-RoS-fire
-      fd velocity
+      let max_RoS max-one-of fires [RoS]
+      face max_RoS
+
+      apagar_fuego
+
+      check-and-extinguish-fires
     ]
   ] if not any? fires [
-    print "No hay fuegos que apagar"
+    print "No hay fuegos por apagar."
   ]
 end
 
-;;Estrategia de camiones de bomberos para dirigirse a fuego de menor RoS
+;; Estrategia de camiones de bomberos para dirigirse a fuego de menor RoS
 to move-fire-trucks-MinRoS
   if any? fires [
-    let min-RoS-fire min-one-of fires [RoS]
     ask fire-trucks [
-      face min-RoS-fire
-      fd velocity
+      let min_RoS min-one-of fires [RoS]
+      face min_RoS
+
+      apagar_fuego
+
+      check-and-extinguish-fires
     ]
   ] if not any? fires [
-    print "No hay fuegos que apagar"
+    print "No hay fuegos por apagar."
   ]
 end
 
-;;comprueba si hay un fuego en un radio determinado y lo elimina
+;; Comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
-  ask fire-trucks [
-    let fires-in-radius fires in-radius fire-trucks-radius
-    ifelse any? fires-in-radius [
-      ask one-of fires-in-radius [
+  let fires-in-radius fires in-radius fire-trucks-radius
+
+  ifelse any? fires-in-radius [
+    set apagando_fuego true
+    let target-fire one-of fires-in-radius
+    ask target-fire [
+      if apagando_fuego = true [
+        set color green
         die
       ]
-    ] [
-      ; No hay fuego en el vecindario
     ]
+  ] [
+    ; No hay fuego en el vecindario
+  ]
+end
+
+to apagar_fuego
+  if apagando_fuego = true [
+    fd 0
+    set color orange
+  ]
+
+  ; Si no se está apagando el fuego
+  if (contador-ticks > Delay) or (contador-ticks = 0) [
+    set apagando_fuego false
+    fd Fire-trucks-speed  ; Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+    set contador-ticks 0
+    set color yellow
   ]
 end
 
@@ -1148,8 +1200,8 @@ end
 GRAPHICS-WINDOW
 449
 10
-1354
-578
+1352
+577
 -1
 -1
 5.042016806722689
@@ -1198,7 +1250,7 @@ wind-speed
 wind-speed
 0.01
 200
-13.01
+24.01
 1
 1
 NIL
@@ -1356,7 +1408,7 @@ flam-level
 flam-level
 0
 1
-0.5
+0.0
 0.1
 1
 NIL
@@ -1904,15 +1956,15 @@ FIRETRUCKS
 1
 
 SLIDER
-8
-727
-180
-760
-velocity
-velocity
+9
+724
+181
+757
+Fire-trucks-speed
+Fire-trucks-speed
 0
 1
-0.3
+0.5
 0.1
 1
 NIL
@@ -1940,10 +1992,25 @@ CHOOSER
 678
 174
 723
-Estrategia
-Estrategia
-"Nearest" "Further" "Higher RoS" "Lower RoS"
+Estrategy
+Estrategy
+"MIN_DISTANCE" "MAX_DISTANCE" "MAX_RoS" "MIN_RoS"
+3
+
+SLIDER
+10
+759
+182
+792
+Delay
+Delay
+0
+10
+10.0
 1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
