@@ -22,8 +22,6 @@ globals
   area
   max-density
 
-  contador-ticks  ;;Para contar ticks de reloj (para el delay apagando fuegos)
-  apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   firetruck-created ;;Flag para saber si se ha creado un firetruck para click-Fire-truck
 
   t
@@ -48,8 +46,11 @@ fires-own
 fire-trucks-own
 [
 
-  truck-size
-  fire-trucks-radius
+  truck-size  ;;Tamaño del firetruck
+  fire-trucks-radius  ;;Radio de colisión con fuego
+  fire-truck-collide ;;Flag para saber si un fire-truck entró en colisión con un fuego
+  contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
+  apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
 ]
 
 patches-own
@@ -91,8 +92,6 @@ to setup
   ca
   set dynawind? false
   set RoS-list []
-  set contador-ticks 0
-  set apagando_fuego false
   set firetruck-created false
 
   (ifelse
@@ -514,7 +513,10 @@ to click-firetruck
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
       set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set fire-truck-collide false
+      set apagando_fuego false
       set truck-size 2
+      set contador-ticks 0
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Fire-trucks-speed
@@ -543,7 +545,10 @@ to go
   spread
   estrategia
   ;;check-and-extinguish-fires
-  if apagando_fuego = true [contar-ticks]
+  ask fire-trucks [
+    if apagando_fuego = true [contar-ticks]
+  ]
+
   consume
 
   if vectorshow? [vectorshow] ; diagnostic
@@ -554,12 +559,12 @@ to go
       stop
     ]
   ]
-   ; set area (count patches with [burned?] * (2 * rescale) ^ 2 )
 
 end
 
+
 to contar-ticks
-  set contador-ticks contador-ticks + 1
+      set contador-ticks contador-ticks + 1
 end
 
 to estrategia
@@ -949,9 +954,9 @@ to move-fire-trucks-MinRoS
       let min_RoS min-one-of fires [RoS]
       face min_RoS
 
-      apagar_fuego
-
       check-and-extinguish-fires
+
+      apagar_fuego
     ]
   ] if not any? fires [
     print "No hay fuegos por apagar."
@@ -963,13 +968,13 @@ to check-and-extinguish-fires
   let fires-in-radius fires in-radius fire-trucks-radius
 
   ifelse any? fires-in-radius [
+    set fire-truck-collide true
     set apagando_fuego true
+
     let target-fire one-of fires-in-radius
     ask target-fire [
-      if apagando_fuego = true [
-        set color green
-        die
-      ]
+      set color green
+      die
     ]
   ] [
     ; No hay fuego en el vecindario
@@ -977,7 +982,7 @@ to check-and-extinguish-fires
 end
 
 to apagar_fuego
-  if apagando_fuego = true [
+  if (apagando_fuego = true) and  (fire-truck-collide = true) [
     fd 0
     set color orange
   ]
@@ -1045,13 +1050,16 @@ to spread
     if stamp? [stamp]
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+ ;; Para que se eliminen los fuegos que salen de los extremos de la pantalla
+
+
 
  ;;;;;;;;;;;; Pre-heating
     ask patch-ahead RoS [if flam < 1 [set flam flam + ( 0.005 * [RoS] of myself) / (1 + distance myself) ^ 2]]
-    ;ask patch-ahead 1 [set flam (flam + (0.001) / (distance myself ^ 2))]
 
     check-cell
   ]
+
 end
 
 ;;Comprobación de si la casilla es diferente al principio y si hay suficiente fuel
@@ -1200,8 +1208,8 @@ end
 GRAPHICS-WINDOW
 449
 10
-1352
-577
+1354
+578
 -1
 -1
 5.042016806722689
@@ -1408,7 +1416,7 @@ flam-level
 flam-level
 0
 1
-0.0
+0.5
 0.1
 1
 NIL
@@ -1995,7 +2003,7 @@ CHOOSER
 Estrategy
 Estrategy
 "MIN_DISTANCE" "MAX_DISTANCE" "MAX_RoS" "MIN_RoS"
-3
+0
 
 SLIDER
 10
