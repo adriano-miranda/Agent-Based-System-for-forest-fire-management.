@@ -1053,13 +1053,19 @@ to spread
  ;; Para que se eliminen los fuegos que salen de los extremos de la pantalla
 
 
-
  ;;;;;;;;;;;; Pre-heating
-    ask patch-ahead RoS [if flam < 1 [set flam flam + ( 0.005 * [RoS] of myself) / (1 + distance myself) ^ 2]]
-
-    check-cell
-  ]
-
+ ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguieten patch no existe, entonces muere
+    if (patch-ahead 1 != nobody) [
+      ask patch-ahead 1 [
+        if flam < 1 [
+          set flam flam + (0.005 * [RoS] of myself) / (1 + distance myself) ^ 2
+        ]
+      ]
+    ] if (patch-ahead 1 = nobody) [
+      die
+    ]
+     check-cell
+    ]
 end
 
 ;;Comprobación de si la casilla es diferente al principio y si hay suficiente fuel
@@ -1258,7 +1264,7 @@ wind-speed
 wind-speed
 0.01
 200
-24.01
+14.01
 1
 1
 NIL
