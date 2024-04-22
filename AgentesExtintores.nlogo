@@ -45,7 +45,6 @@ fires-own
 
 fire-trucks-own
 [
-
   truck-size  ;;Tamaño del firetruck
   fire-trucks-radius  ;;Radio de colisión con fuego
   fire-truck-collide ;;Flag para saber si un fire-truck entró en colisión con un fuego
@@ -72,7 +71,6 @@ patches-own
 
   globX
   globY
-
 
   fueltype
   water?
@@ -552,6 +550,9 @@ to go
   consume
 
   if vectorshow? [vectorshow] ; diagnostic
+
+  set area (count patches with [burned?] * (2 * rescale) ^ 2 )
+
   if stoptime > 0
   [if ticks >= stoptime
     [
@@ -559,7 +560,6 @@ to go
       stop
     ]
   ]
-
 end
 
 
@@ -1054,7 +1054,7 @@ to spread
 
 
  ;;;;;;;;;;;; Pre-heating
- ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguieten patch no existe, entonces muere
+ ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguiete patch no existe, entonces muere
     if (patch-ahead 1 != nobody) [
       ask patch-ahead 1 [
         if flam < 1 [
@@ -1214,8 +1214,8 @@ end
 GRAPHICS-WINDOW
 449
 10
-1354
-578
+1350
+576
 -1
 -1
 5.042016806722689
@@ -1264,7 +1264,7 @@ wind-speed
 wind-speed
 0.01
 200
-14.01
+20.0
 1
 1
 NIL
