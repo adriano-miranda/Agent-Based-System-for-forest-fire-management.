@@ -134,6 +134,7 @@ to setup
       landscape
       ask patches with [ignition?] [ignite]
     ]
+
     scenario = 5; 5 is the first, and smaller part of the Dogrib fire
     [
 
@@ -562,7 +563,6 @@ to go
   ]
 end
 
-
 to contar-ticks
       set contador-ticks contador-ticks + 1
 end
@@ -653,7 +653,6 @@ to landscape
         if Visualisation = "FBPscheme" [set pcolor [255 211 127]]
         ;set pcolor [127 154 138]
       ]
-
 
       [set flam flam-level set fuel fuel-level]
     )
@@ -902,65 +901,59 @@ end
 
 ;;Estrategia de camiones de bomberos para dirgirse al más cercano
 to move-fire-trucks-nearest
-  if any? fires[
     ask fire-trucks [
       let nearest-fire min-one-of fires [distance myself]
-      face nearest-fire
-
-      apagar_fuego
-
-      check-and-extinguish-fires
+      if any? fires[
+        face nearest-fire
+        apagar_fuego
+        check-and-extinguish-fires
+      ]if not any? fires [
+      print "No hay fuegos por apagar."
+      ]
     ]
-  ] if not any? fires [
-    print "No hay fuegos por apagar."
-  ]
 end
 
 to move-fire-trucks-further
-  if any? fires[
     ask fire-trucks [
       let further-fire max-one-of fires [distance myself]
-      face further-fire
-
-      apagar_fuego
-
-      check-and-extinguish-fires
+      if any? fires[
+        face further-fire
+        apagar_fuego
+        check-and-extinguish-fires
+      ]if not any? fires [
+        print "No hay fuegos por apagar."
+      ]
     ]
-  ] if not any? fires [
-    print "No hay fuegos por apagar."
-  ]
 end
 
 ;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
 to move-fire-trucks-MaxRoS
-  if any? fires[
+
     ask fire-trucks [
       let max_RoS max-one-of fires [RoS]
-      face max_RoS
-
-      apagar_fuego
-
-      check-and-extinguish-fires
-    ]
-  ] if not any? fires [
-    print "No hay fuegos por apagar."
+      if any? fires[
+        face max_RoS
+        apagar_fuego
+        check-and-extinguish-fires
+      ] if not any? fires [
+        print "No hay fuegos por apagar."
+      ]
   ]
 end
 
 ;; Estrategia de camiones de bomberos para dirigirse a fuego de menor RoS
 to move-fire-trucks-MinRoS
-  if any? fires [
+
     ask fire-trucks [
       let min_RoS min-one-of fires [RoS]
-      face min_RoS
-
-      check-and-extinguish-fires
-
-      apagar_fuego
+      if any? fires [
+        face min_RoS
+        check-and-extinguish-fires
+        apagar_fuego
+      ]if not any? fires [
+        print "No hay fuegos por apagar."
+      ]
     ]
-  ] if not any? fires [
-    print "No hay fuegos por apagar."
-  ]
 end
 
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
@@ -1024,6 +1017,7 @@ to spread
     let f2-2 f2 * (1.2 - windmod / 1.3)
     let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(aspect - 180)))
     let Cy ((RoS * cos(heading)) * (f2-2) * (1 + density-mod * d1) + windY * (1.05 - f2-2) * windmod + (s1 * slope / 100 * cos(aspect - 180)))
+
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -1214,8 +1208,8 @@ end
 GRAPHICS-WINDOW
 449
 10
-1350
-576
+1354
+578
 -1
 -1
 5.042016806722689
@@ -2009,7 +2003,7 @@ CHOOSER
 Estrategy
 Estrategy
 "MIN_DISTANCE" "MAX_DISTANCE" "MAX_RoS" "MIN_RoS"
-0
+3
 
 SLIDER
 10
@@ -2020,7 +2014,7 @@ Delay
 Delay
 0
 10
-10.0
+5.0
 1
 1
 NIL
