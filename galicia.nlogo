@@ -19,7 +19,10 @@ globals
 
   RoS-list
   avgRoS
+
   area
+  BurnedArea
+
   max-density
 
   firetruck-created ;;Flag para saber si se ha creado un firetruck para click-Fire-truck
@@ -109,22 +112,38 @@ to setup
   reset-ticks
 end
 
+
 to load-GIS-0
+  ;let vegetacion_galicia gis:load-dataset "DATA/MFE/MFE_11.shp"
 
-  let vegetacion_galicia gis:load-dataset "DATA/MFE/MFE_11.shp"
   ;;Pilla las dimensiones del mapa
-  gis:set-world-envelope gis:envelope-of vegetacion_galicia
-  gis:set-drawing-color green
+  ;gis:set-world-envelope gis:envelope-of vegetacion_galicia
+  ;gis:set-drawing-color green
+
   ;Dibujo todos los elementos del fichero
-  foreach gis:feature-list-of vegetacion_galicia [? -> gis:draw ? 1.0]
+  ;foreach gis:feature-list-of vegetacion_galicia [? -> gis:draw ? 1.0]
 
-  ask patches
-  [
+
+  let spec-rescale rescale
+  let fueltypeData gis:load-dataset "DATA/MFE/modelo_combustible.asc"
+
+  let new-world-width ((gis:width-of fueltypeData) * spec-rescale)
+  let new-world-height ((gis:height-of fueltypeData) * spec-rescale)
+
+  resize-world 0 (new-world-width - 1)  0 (new-world-height - 1)
+  set-patch-size 900 / new-world-width                                      ; I should make the patch size change relative to the world size itself
+  let envelope gis:envelope-of fueltypeData
+  gis:set-world-envelope envelope
+
+  gis:apply-raster fueltypeData fueltype
+
+
+  print("Fueltype del patch 0 100 : ")
+  show [fueltype] of patch 0 100  ; Imprime el area de un patch
+
+  ask patches [
     set ignition? false set burned? false set perim? false set water? false set nonfuel? false
-  ] ; Patch init must happen right after resize
-
-
-
+  ]
 end
 
 to ignite
@@ -180,7 +199,7 @@ to click-firetruck
       set contador-ticks 0
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
-      fd Fire-trucks-speed
+      fd Firetrucks-speed
       setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
     ]
     set firetruck-created true
@@ -213,8 +232,15 @@ to go
   consume
 
   ;;if vectorshow? [vectorshow] ; diagnostic
+  ;;set BurnedArea (count patches with [burned?] * (2 * rescale) ^ 2 )
 
-  set area (count patches with [burned?] * (2 * rescale) ^ 2 )
+
+  ;ask patches [
+    ; Verificar si el parche está quemado
+    ;calcular area quemada (saber cuantas hectareas son un pixel y multiplicar por pixeles quemados)
+  ;]
+  ; Mostrar el área total quemada en la consola
+  ;print (word "Área total quemada: " BurnedArea)
 
   if stoptime > 0
   [if ticks >= stoptime
@@ -242,19 +268,115 @@ end
 to landscape
   ask patches
   [
-    set flam flam-level
-    set fuel fuel-level
+    (ifelse
 
-    if Visualisation = "Flammability" [
-    if not water? and not nonfuel? [
-    set pcolor palette:scale-gradient [[144 170 149][111 137 127][95 120 117][65 80 87][51 59 71][38 41 54]] flam 0 1]
-    ;;[if water? [set pcolor [139 163 189]] if nonfuel? [set pcolor [188 188 181]]]]
-    ]
-   ;; if randomfuel? and not water? and not nonfuel? [
-   ;;   set fuel 0.1 + random-float 0.9 set flam 0.1 + random-float 0.9
-   ;;   set pcolor palette:scale-gradient [[144 170 149][111 137 127][95 120 117][65 80 87][51 59 71][38 41 54]] flam 0 1
-   ;; ]
+      fueltype = 1 ; Pasto fino, seco y bajo. Pl leñosas < 1/3 de la superficie
+      [
+        set fuel 0.5
+        set flam 0.85
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;
+        ;set pcolor [51 59 71]
+      ]
+      fueltype = 2 ; Pasto fino, seco y bajo. Pl leñosas cubren  1/3 a 2/3 de la superficie
+      [
+        set fuel 0.5
+        set flam 0.9
+        if Visualisation = "Fueltype" [set pcolor [200 100 100]] ;;salmón
+        ;set pcolor [65 80 87]
+      ]
+      fueltype = 3 ;Pasto denso, grueso, seco y alto (h>1m). Pl leñosas dispersas
+      [
+        set fuel 0.6
+        set flam 0.5
+        if Visualisation = "Fueltype" [set pcolor [255 255 0]] ;;Amarillo
+        ;set pcolor [65 80 87]
+      ]
 
+      fueltype = 4 ; Matorral  denso y  verde (h>2 m). Propagación del fuego por las copas de las pl.
+      [
+        set fuel 0.4
+        set flam 1.0
+        if Visualisation = "Fueltype" [set pcolor [100 100 100]] ;;gris
+        ;set pcolor [65 80 87]
+      ]
+      fueltype = 5 ; Matorral  denso y  verde (h<1 m). Propagación del fuego por la hojarasca y el pasto
+      [
+        set fuel 0.5
+        set flam 0.9
+        if Visualisation = "Fueltype" [set pcolor [50 70 0]] ;;Marrón Verdoso
+        ;set pcolor [65 80 87]
+      ]
+      fueltype = 6 ; Parecido al modelo 5 pero con especies más inflamables o con restos de podasy pl de mayor talla
+      [
+        set fuel 0.5
+        set flam 0.9
+        if Visualisation = "Fueltype" [set pcolor [170 100 0]] ;;Naranja
+        ;set pcolor [79 101 104]
+      ]
+      fueltype = 7 ;Matorral de especies muy inflamables (h: 0,5-2 m) situado como sotobosque de masas de coníferas
+      [
+        set fuel 0.3
+        set flam 0.9
+        if Visualisation = "Fueltype" [set pcolor [120 50 100]] ;; Rosa
+        ;set pcolor [95 120 117]
+      ]
+      fueltype = 8 ;Bosque denso, sin matorral. Propagación del fuego por hojarasca muy compacta
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [30 100 20]] ;;Verde
+        ;set pcolor [95 120 117]
+      ]
+      fueltype = 9 ;Parecido al modelo 8 pero con hojarasca menos compacta formada por acículas largas y rígidas o follaje de frondosas de hojas grandes
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [180 235 20]] ;;Amarillo verdoso
+        ;set pcolor [95 120 117]
+      ]
+      fueltype = 10 ;Bosque con gran cantidad de leña y árboles caídos, como consecuencia de vendavales, plagas intensas, etc.
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [30 235 65]] ;;Verde clarito
+        ;set pcolor [95 120 117]
+      ]
+
+      fueltype = 11 ;Bosque claro y fuertemente aclarado. Restos de poda o aclarado dispersos con pl herbáceas rebrotando
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [30 235 110]] ;; Verde azulado
+        ;set pcolor [95 120 117]
+      ]
+      fueltype = 12 ;Predominio de los restos sobre el arbolado. Restos de poda o aclareo cubriendo todo el suelo
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [100 100 0]] ;;Ocre
+        ;set pcolor [95 120 117]
+      ]
+
+      fueltype = 13 ;Grandes acumulaciones de restos gruesos y pesados, cubriendo todo el suelo.
+      [
+        set fuel 0.5
+        set flam 0.2
+        if Visualisation = "Fueltype" [set pcolor [100 0 100]] ;;Violeta
+        ;set pcolor [95 120 117]
+      ]
+      [
+        ;;En caso de no ser ninguno de estos tipos:
+        set fuel 0.5
+        set flam 0.5
+        if Visualisation = "Fueltype" [set pcolor [255 255 255] ] ;;Blanco
+        ;set pcolor [38 41 54]
+      ]
+    )
+    set flam flam-level set fuel fuel-level
+    ;if Visualisation = "Flammability" [
+    ;ifelse not water? and not nonfuel? [
+    ;set pcolor palette:scale-gradient [[144 170 149][111 137 127][95 120 117][65 80 87][51 59 71][38 41 54]] flam 0 1]
+    ;[if water? [set pcolor [139 163 189]] if nonfuel? [set pcolor [188 188 181]]]]
   ]
 end
 
@@ -444,7 +566,7 @@ to apagar_fuego
   ; Si no se está apagando el fuego
   if (contador-ticks > Delay) or (contador-ticks = 0) [
     set apagando_fuego false
-    fd Fire-trucks-speed  ; Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+    fd Firetrucks-speed  ; Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
     set contador-ticks 0
     set color yellow
   ]
@@ -488,8 +610,8 @@ to spread
     let f2-2 f2 * (1.2 - windmod / 1.3)
     let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(aspect - 180)))
     let Cy ((RoS * cos(heading)) * (f2-2) * (1 + density-mod * d1) + windY * (1.05 - f2-2) * windmod + (s1 * slope / 100 * cos(aspect - 180)))
-    print("SLOPE: ")
-    print(slope)
+    ;print("SLOPE: ")
+    ;print(slope)
     ;;print("Aspect: ")
     ;;print(aspect)
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -648,11 +770,11 @@ end
 GRAPHICS-WINDOW
 449
 10
-1354
-578
+1356
+580
 -1
 -1
-5.042016806722689
+2.5210084033613445
 1
 10
 1
@@ -663,9 +785,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-177
+356
 0
-110
+222
 0
 0
 1
@@ -698,7 +820,7 @@ wind-speed
 wind-speed
 0.01
 50
-9.01
+13.01
 1
 1
 NIL
@@ -710,7 +832,7 @@ INPUTBOX
 60
 395
 stoptime
-3060.0
+1530.0
 1
 0
 Number
@@ -770,10 +892,10 @@ count active-cells
 11
 
 MONITOR
-873
-600
-957
-645
+3
+464
+87
+509
 RoS in Cell/Tick
 mean [RoS] of fires
 4
@@ -820,75 +942,11 @@ scenario
 0
 0
 
-PLOT
-873
-645
-1178
-825
-Agreement
-NIL
-NIL
-0.0
-10.0
-0.0
-10.0
-true
-true
-"" ""
-PENS
-"Hits" 1.0 0 -13840069 true "" "plot hits"
-"Misses" 1.0 0 -2674135 true "" "plot misses"
-"False alarms" 1.0 0 -13345367 true "" "plot false-alarms"
-
 MONITOR
-1178
-645
-1261
-690
-Figure of Merit
-fom-stats
-3
-1
-11
-
-MONITOR
-1178
-690
-1261
-735
-Hits
-hits
-3
-1
-11
-
-MONITOR
-1178
-735
-1261
-780
-Misses
-misses
-3
-1
-11
-
-MONITOR
-1178
-780
-1261
-825
-False alarms
-false-alarms
-3
-1
-11
-
-MONITOR
-1097
-600
-1261
-645
+283
+464
+447
+509
 avg RoS start to finish (m/min)
 avgRoS * 200
 4
@@ -896,12 +954,12 @@ avgRoS * 200
 11
 
 MONITOR
-1031
-600
-1097
-645
-Area (ha)
-area
+160
+464
+283
+509
+Area Quemada (ha)
+BurnedArea
 0
 1
 11
@@ -918,39 +976,15 @@ rescale
 Number
 
 MONITOR
-957
-600
-1031
-645
+87
+464
+161
+509
 RoS in m/min
 mean [RoS] of fires * 200
 4
 1
 11
-
-PLOT
-450
-600
-873
-826
-Diagnostics
-NIL
-NIL
-0.0
-10.0
-0.0
-1.0
-true
-true
-"" ""
-PENS
-"RoS" 1.0 0 -2674135 true "" "plot mean [RoS] of fires"
-"WS" 1.0 0 -8990512 true "" "plot mean [windspe] of active-cells"
-"collinear" 1.0 0 -14985354 true "" "plot mean [collinear] of fires"
-"windmod" 1.0 0 -865067 true "" "plot mean [windmod] of fires"
-"density-mod" 1.0 0 -1184463 true "" "plot mean [density-mod] of fires"
-"f2-effective" 1.0 0 -16645118 true "" "plot mean [(f2 * (1 - windmod / 2))] of fires"
-"0" 1.0 0 -4539718 true "" "plot 0"
 
 CHOOSER
 210
@@ -959,7 +993,7 @@ CHOOSER
 109
 Visualisation
 Visualisation
-"Flammability"
+"Fueltype" "Flamability"
 0
 
 BUTTON
@@ -1060,8 +1094,8 @@ SLIDER
 236
 378
 269
-Fire-trucks-speed
-Fire-trucks-speed
+Firetrucks-speed
+Firetrucks-speed
 0
 1
 0.5
