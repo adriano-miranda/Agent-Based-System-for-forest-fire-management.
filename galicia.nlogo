@@ -10,24 +10,16 @@ globals
   active-cells
   active-wind
 
-  comparison-perimeter
-  dynawind?
-
-  hits
-  misses
-  false-alarms
-
   RoS-list
   avgRoS
 
   area
-  BurnedArea
 
   max-density
 
   firetruck-created ;;Flag para saber si se ha creado un firetruck para click-Fire-truck
 
-  t
+  t ;;Para la función de vectorizar
   t30
 ]
 
@@ -91,14 +83,12 @@ patches-own
 
 to setup
   ca
-  set dynawind? false
   set RoS-list []
   set firetruck-created false
 
   if scenario = 0  ; manual wind speed and direction input
     [
       set stoptime 1530 * rescale ; 25.5 hours between ignition ans start of firefighting
-      set dynawind? true
       set wind-direction 55
 
       ;Cargar el mapa
@@ -114,6 +104,7 @@ end
 
 
 to load-GIS-0
+  ;para mostrar el archivo en formato vectorial GIS
   ;let vegetacion_galicia gis:load-dataset "DATA/MFE/MFE_11.shp"
 
   ;;Pilla las dimensiones del mapa
@@ -125,11 +116,13 @@ to load-GIS-0
 
 
   let spec-rescale rescale
-  let fueltypeData gis:load-dataset "DATA/MFE/modelo_combustible.asc"
+  let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible.asc"
 
   let new-world-width ((gis:width-of fueltypeData) * spec-rescale)
   let new-world-height ((gis:height-of fueltypeData) * spec-rescale)
 
+  print((gis:width-of fueltypeData))
+  print(gis:height-of fueltypeData)
   resize-world 0 (new-world-width - 1)  0 (new-world-height - 1)
   set-patch-size 900 / new-world-width                                      ; I should make the patch size change relative to the world size itself
   let envelope gis:envelope-of fueltypeData
@@ -230,17 +223,10 @@ to go
   ]
 
   consume
-
+  ;cada pixel = area total Galicia / total pixeles = 2957500 / 96666 = 30,5 ha
+  set area (count patches with [burned?] * 30.5 ) ;pixeles quemados * hectareas de cada pixel
   ;;if vectorshow? [vectorshow] ; diagnostic
-  ;;set BurnedArea (count patches with [burned?] * (2 * rescale) ^ 2 )
 
-
-  ;ask patches [
-    ; Verificar si el parche está quemado
-    ;calcular area quemada (saber cuantas hectareas son un pixel y multiplicar por pixeles quemados)
-  ;]
-  ; Mostrar el área total quemada en la consola
-  ;print (word "Área total quemada: " BurnedArea)
 
   if stoptime > 0
   [if ticks >= stoptime
@@ -274,7 +260,7 @@ to landscape
       [
         set fuel 0.5
         set flam 0.85
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;verde oscuro
         ;set pcolor [51 59 71]
       ]
       fueltype = 2 ; Pasto fino, seco y bajo. Pl leñosas cubren  1/3 a 2/3 de la superficie
@@ -322,37 +308,37 @@ to landscape
       ]
       fueltype = 8 ;Bosque denso, sin matorral. Propagación del fuego por hojarasca muy compacta
       [
-        set fuel 0.5
+        set fuel 0.7
         set flam 0.2
         if Visualisation = "Fueltype" [set pcolor [30 100 20]] ;;Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 9 ;Parecido al modelo 8 pero con hojarasca menos compacta formada por acículas largas y rígidas o follaje de frondosas de hojas grandes
       [
-        set fuel 0.5
-        set flam 0.2
+        set fuel 0.7
+        set flam 0.4
         if Visualisation = "Fueltype" [set pcolor [180 235 20]] ;;Amarillo verdoso
         ;set pcolor [95 120 117]
       ]
       fueltype = 10 ;Bosque con gran cantidad de leña y árboles caídos, como consecuencia de vendavales, plagas intensas, etc.
       [
-        set fuel 0.5
-        set flam 0.2
+        set fuel 0.4
+        set flam 0.6
         if Visualisation = "Fueltype" [set pcolor [30 235 65]] ;;Verde clarito
         ;set pcolor [95 120 117]
       ]
 
       fueltype = 11 ;Bosque claro y fuertemente aclarado. Restos de poda o aclarado dispersos con pl herbáceas rebrotando
       [
-        set fuel 0.5
-        set flam 0.2
+        set fuel 0.8
+        set flam 0.7
         if Visualisation = "Fueltype" [set pcolor [30 235 110]] ;; Verde azulado
         ;set pcolor [95 120 117]
       ]
       fueltype = 12 ;Predominio de los restos sobre el arbolado. Restos de poda o aclareo cubriendo todo el suelo
       [
         set fuel 0.5
-        set flam 0.2
+        set flam 0.6
         if Visualisation = "Fueltype" [set pcolor [100 100 0]] ;;Ocre
         ;set pcolor [95 120 117]
       ]
@@ -360,7 +346,7 @@ to landscape
       fueltype = 13 ;Grandes acumulaciones de restos gruesos y pesados, cubriendo todo el suelo.
       [
         set fuel 0.5
-        set flam 0.2
+        set flam 0.8
         if Visualisation = "Fueltype" [set pcolor [100 0 100]] ;;Violeta
         ;set pcolor [95 120 117]
       ]
@@ -372,7 +358,8 @@ to landscape
         ;set pcolor [38 41 54]
       ]
     )
-    set flam flam-level set fuel fuel-level
+    ;set flam flam-level ;para establecer todos los patches con el mismo nivel de flam y fuel
+    ;set fuel fuel-level
     ;if Visualisation = "Flammability" [
     ;ifelse not water? and not nonfuel? [
     ;set pcolor palette:scale-gradient [[144 170 149][111 137 127][95 120 117][65 80 87][51 59 71][38 41 54]] flam 0 1]
@@ -480,7 +467,6 @@ to fSlope-Aspect
   set fireX 3 * x-slope + fireX
   set fireY 3 * y-slope + fireY
 end
-
 
 ;;Estrategia de camiones de bomberos para dirgirse al más cercano
 to move-fire-trucks-nearest
@@ -647,6 +633,11 @@ to spread
  ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguiete patch no existe, entonces muere
     if (patch-ahead 1 != nobody) [
       ask patch-ahead 1 [
+        print("FUEL: ")
+        print(fuel)
+        print("FLAM: ")
+        print(flam)
+
         if flam < 1 [
           set flam flam + (0.005 * [RoS] of myself) / (1 + distance myself) ^ 2
         ]
@@ -658,7 +649,6 @@ to spread
     ]
 end
 
-;;Comprobación de si la casilla es diferente al principio y si hay suficiente fuel
 to check-cell
   ; Checks if the cell is different from origin cell and if there is enough fuel
   ask fires
@@ -770,11 +760,11 @@ end
 GRAPHICS-WINDOW
 449
 10
-1356
-580
+1357
+919
 -1
 -1
-2.5210084033613445
+2.903225806451613
 1
 10
 1
@@ -785,9 +775,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-356
+309
 0
-222
+309
 0
 0
 1
@@ -902,36 +892,6 @@ mean [RoS] of fires
 1
 11
 
-SLIDER
-7
-234
-179
-267
-fuel-level
-fuel-level
-0
-1
-0.5
-0.1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-7
-203
-179
-236
-flam-level
-flam-level
-0
-1
-0.5
-0.1
-1
-NIL
-HORIZONTAL
-
 CHOOSER
 6
 43
@@ -959,7 +919,7 @@ MONITOR
 283
 509
 Area Quemada (ha)
-BurnedArea
+area
 0
 1
 11
@@ -1098,7 +1058,7 @@ Firetrucks-speed
 Firetrucks-speed
 0
 1
-0.5
+0.7
 0.1
 1
 NIL
@@ -1140,7 +1100,7 @@ Delay
 Delay
 0
 10
-5.0
+3.0
 1
 1
 NIL
