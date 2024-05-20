@@ -69,6 +69,7 @@ patches-own
 
   fueltype
   landusetype
+  fuera_mapa
 
   water?
   nonfuel?
@@ -132,6 +133,7 @@ to load-GIS-0
     set burned? false
     set perim? false
     set water? false
+    set fuera_mapa false
     set nonfuel? false
   ]
   print("fueltype del patch 83 80 :")
@@ -278,21 +280,21 @@ to landscape
       [
         set fuel 0.5
         set flam 0.85
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;verde oscuro
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [51 59 71]
       ]
       fueltype = 2 ; Pasto fino, seco y bajo. Pl leñosas cubren  1/3 a 2/3 de la superficie
       [
         set fuel 0.5
         set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;salmón
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [65 80 87]
       ]
       fueltype = 3 ;Pasto denso, grueso, seco y alto (h>1m). Pl leñosas dispersas
       [
         set fuel 0.6
         set flam 0.5
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Amarillo
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [65 80 87]
       ]
 
@@ -300,14 +302,14 @@ to landscape
       [
         set fuel 0.4
         set flam 1.0
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;gris
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [65 80 87]
       ]
       fueltype = 5 ; Matorral  denso y  verde (h<1 m). Propagación del fuego por la hojarasca y el pasto
       [
         set fuel 0.5
         set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Marrón Verdoso
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [65 80 87]
       ]
       fueltype = 6 ; Parecido al modelo 5 pero con especies más inflamables o con restos de podasy pl de mayor talla
@@ -321,7 +323,7 @@ to landscape
       [
         set fuel 0.3
         set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;; Rosa
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 8 ;Bosque denso, sin matorral. Propagación del fuego por hojarasca muy compacta
@@ -335,14 +337,14 @@ to landscape
       [
         set fuel 0.7
         set flam 0.4
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Amarillo verdoso
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 10 ;Bosque con gran cantidad de leña y árboles caídos, como consecuencia de vendavales, plagas intensas, etc.
       [
         set fuel 0.4
         set flam 0.6
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde clarito
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [95 120 117]
       ]
 
@@ -350,14 +352,14 @@ to landscape
       [
         set fuel 0.8
         set flam 0.7
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;; Verde azulado
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;; Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 12 ;Predominio de los restos sobre el arbolado. Restos de poda o aclareo cubriendo todo el suelo
       [
         set fuel 0.5
         set flam 0.6
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Ocre
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [95 120 117]
       ]
 
@@ -365,7 +367,7 @@ to landscape
       [
         set fuel 0.5
         set flam 0.8
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
         ;set pcolor [95 120 117]
       ]
 
@@ -375,77 +377,77 @@ to landscape
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 71 ;Cultivos.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 72 ;Cultivos con arbolado disperso.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 73 ;Prado.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 74 ;Prados con setos
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 75 ;Mosaico Agrícola con artificial.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 82 ;Primario.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 83 ;Industrial.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 84 ;Terciario.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 85 ;Equipamiento Dotacional.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 87 ;Otras superficies artificiales.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
 
@@ -454,21 +456,21 @@ to landscape
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 102 ;
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 103 ;Cortafuegos.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
 
@@ -476,157 +478,155 @@ to landscape
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 441 ;Acantilados Marinos.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 442 ;Afloramientos rocosos.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 443 ;Canchales.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
         fueltype = 452 ;Roturado no agrícola.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 511 ;Zonas pantanosas.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 512 ;Turberas.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 521 ;Marismas.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 611 ;Cursos de agua.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 622 ;Estuarios.
       [
         set fuel 0.3
         set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 811 ;Urbano Continuo.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 812 ;Urbano Discontinuo.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 861 ;Transportes
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 862 ;Energía
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 863 ;Suministros de agua.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 864 ;Telecomunicaciones.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 865 ;Residuos.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 4542 ;Otras zonas erosionadas.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 6121 ;Lagunas.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 6122 ;Pantano o embalse.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
       fueltype = 6123 ;Laguna de alta montaña.
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Violeta
+        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
         ;set pcolor [95 120 117]
       ]
 
-
-
-
       [
         ;;En caso de no ser ninguno de estos tipos:
-        set fuel 0.5
-        set flam 0.5
+        set fuera_mapa true
+        set fuel 0.0
+        set flam 0.0
         if Visualisation = "Fueltype" [set pcolor [255 255 255] ] ;;Blanco
         ;set pcolor [38 41 54]
       ]
@@ -915,7 +915,7 @@ to spread
           set flam flam + (0.005 * [RoS] of myself) / (1 + distance myself) ^ 2
         ]
       ]
-    ] if (patch-ahead 1 = nobody) [
+    ] if fuera_mapa = true [
       die
     ]
      check-cell
