@@ -52,6 +52,7 @@ patches-own
 [
   fuel
   flam
+  cluster ; Cluster al que pertenece
   windspe
   winddir
   globspe
@@ -310,355 +311,130 @@ end
 ;;Visualización "Terrain": depende de slope
 ;;Visualización "Flamability": Depende solo de la inflamabilidad (flam)
 to landscape
+
   ask patches
   [
 
     (ifelse
+      ;;Colores: -Escala de verdes:mientras más oscuro media entre fuel y flam más alta
+      ;;-azul: Zonas dónde hay agua -gris: dónde no se propaga el fuego (fuel=0 y flam=0)
 
       fueltype = 1 ; Pasto fino, seco y bajo. Pl leñosas < 1/3 de la superficie
       [
-        set fuel 0.5
-        set flam 0.85
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.3 ;Cubre poco de la superficie por lo tanto poca densidad
+        set flam 0.7; Valoración de chatgpt entre 0.6 y 0.8.
+        set cluster "pasto poco denso"
+        if Visualisation = "Fueltype" [set pcolor [0 100 0]] ;;Verde
         ;set pcolor [51 59 71]
       ]
       fueltype = 2 ; Pasto fino, seco y bajo. Pl leñosas cubren  1/3 a 2/3 de la superficie
       [
-        set fuel 0.5
-        set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.6 ;Como el 1 pero cubre más superficie por lo tanto más denso
+        set flam 0.7; Valoración de chatgpt entre 0.6 y 0.8
+        set cluster "pasto medianamente denso"
+        if Visualisation = "Fueltype" [set pcolor [0 83 0]] ;;Verde
         ;set pcolor [65 80 87]
       ]
       fueltype = 3 ;Pasto denso, grueso, seco y alto (h>1m). Pl leñosas dispersas
       [
-        set fuel 0.6
-        set flam 0.5
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.8 ;Como el anterior pero más denso
+        set flam 0.7 ;;Valoración de chatgpt entre 0.6 y 0.8
+        set cluster "pasto medianamente denso"
+        if Visualisation = "Fueltype" [set pcolor [0 64 0]] ;;Verde
         ;set pcolor [65 80 87]
       ]
 
-      fueltype = 4 ; Matorral  denso y  verde (h>2 m). Propagación del fuego por las copas de las pl.
+      ;Matorral  denso y  verde (h>2 m). Propagación del fuego por las copas de las pl.; ; Matorral  denso y  verde (h<1 m). Propagación del fuego por la hojarasca y el pasto;
+      (member? fueltype [4 5])
       [
-        set fuel 0.4
-        set flam 1.0
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
-        ;set pcolor [65 80 87]
+        set fuel 0.8 ;alto puesto que es denso
+        set flam 0.7 ;según chatgpt oscila entre 0.6 y 0.9
+        set cluster "matorrales densos"
+        if Visualisation = "Fueltype" [set pcolor [0 64 0]] ;;Azul
       ]
-      fueltype = 5 ; Matorral  denso y  verde (h<1 m). Propagación del fuego por la hojarasca y el pasto
+
+      ;Parecido al modelo 5 pero con especies más inflamables o con restos de podasy pl de mayor talla; Matorral de especies muy inflamables (h: 0,5-2 m) situado como sotobosque de masas de coníferas
+      (member? fueltype [6 7])
       [
-        set fuel 0.5
-        set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
-        ;set pcolor [65 80 87]
+        set fuel 0.5 ;Medio puesto que no especifica que sean densos
+        set flam 0.9 ;especifica alta inflamabilidad
+        set cluster "matorrales alta inflamabilidad"
+        if Visualisation = "Fueltype" [set pcolor [0 71 0]] ;;Azul
       ]
-      fueltype = 6 ; Parecido al modelo 5 pero con especies más inflamables o con restos de podasy pl de mayor talla
-      [
-        set fuel 0.5
-        set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Naranja
-        ;set pcolor [79 101 104]
-      ]
-      fueltype = 7 ;Matorral de especies muy inflamables (h: 0,5-2 m) situado como sotobosque de masas de coníferas
-      [
-        set fuel 0.3
-        set flam 0.9
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
-        ;set pcolor [95 120 117]
-      ]
+
       fueltype = 8 ;Bosque denso, sin matorral. Propagación del fuego por hojarasca muy compacta
       [
-        set fuel 0.7
-        set flam 0.2
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.8 ; especifica que es denso
+        set flam 0.7 ;entre 0.7 y 0.8 según chatgpt
+        set cluster "bosque denso"
+        if Visualisation = "Fueltype" [set pcolor [0 64 0]] ;;Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 9 ;Parecido al modelo 8 pero con hojarasca menos compacta formada por acículas largas y rígidas o follaje de frondosas de hojas grandes
       [
-        set fuel 0.7
-        set flam 0.4
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.6 ;Igual que el 8 pero menos compacto por lo tanto menos denso
+        set flam 0.7 ;Igual que el 8
+        set cluster "bosque poco denso"
+        if Visualisation = "Fueltype" [set pcolor [0 83 0]] ;;Verde
         ;set pcolor [95 120 117]
       ]
       fueltype = 10 ;Bosque con gran cantidad de leña y árboles caídos, como consecuencia de vendavales, plagas intensas, etc.
       [
-        set fuel 0.4
-        set flam 0.6
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.5 ; No tenemos información sobre la densidad
+        set flam 0.8 ;Valoración según chatgpt
+        set cluster "arboles caidos"
+        if Visualisation = "Fueltype" [set pcolor [0 83 0]] ;;Verde
         ;set pcolor [95 120 117]
       ]
-
-      fueltype = 11 ;Bosque claro y fuertemente aclarado. Restos de poda o aclarado dispersos con pl herbáceas rebrotando
+      ;Bosque claro y fuertemente aclarado. Restos de poda o aclarado dispersos con pl herbáceas rebrotando; Predominio de los restos sobre el arbolado. Restos de poda o aclareo cubriendo todo el suelo
+      (member? fueltype [11 12])
       [
-        set fuel 0.8
-        set flam 0.7
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;; Verde
+        set fuel 0.3;Disperso por lo tanto poco denso
+        set flam 0.5;Valoración de chatgpt entre 0.4 y 0.6
+        set cluster "bosques claros"
+        if Visualisation = "Fueltype" [set pcolor [0 115 50]] ;; Verde
         ;set pcolor [95 120 117]
       ]
-      fueltype = 12 ;Predominio de los restos sobre el arbolado. Restos de poda o aclareo cubriendo todo el suelo
-      [
-        set fuel 0.5
-        set flam 0.6
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
-        ;set pcolor [95 120 117]
-      ]
-
       fueltype = 13 ;Grandes acumulaciones de restos gruesos y pesados, cubriendo todo el suelo.
       [
-        set fuel 0.5
-        set flam 0.8
-        if Visualisation = "Fueltype" [set pcolor [50 100 50]] ;;Verde
+        set fuel 0.9 ; Alta densidad al cubrir todo el suelo con restos gruesos y pesados
+        set flam 0.9 ;Valoración de chatgpt entre 0.9 y 1.0
+        set cluster "grandes acumulaciones"
+        if Visualisation = "Fueltype" [set pcolor [0 26 0]] ;;Verde
         ;set pcolor [95 120 117]
       ]
 
       ;;USO DE SUELO para patches sin información de modelo Combustible
 
-      fueltype = 41 ;Playas dunas y arenales.
+      ;Playas Dunas y Arenales; Primario;Industrial;Terciario;Equipamiento Dotaciona;Otras superficies artificiales; Talas; Superficies arboladas quemadas; Cortafuegos; SUperficies desarboladas quemadas;
+      ;Acantilados marinos; Afloramientos rocosos; Canchales; Roturado no agrícola; Zonas pantanosas; Turberas; Marismas; Estuarios; Urbano Continuo; Urbano Discontinuo;
+      ;Transportes; Energía; Telecomunicaciones; Residuos; Otras zonas erosionadas;
+      (member? fueltype [41 82 83 84 85 87 101 102 103 432
+        441 442 443 452 511 512 521 622 811 812
+        861 862 864 865 4542])
       [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 71 ;Cultivos.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 72 ;Cultivos con arbolado disperso.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 73 ;Prado.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 74 ;Prados con setos
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 75 ;Mosaico Agrícola con artificial.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 82 ;Primario.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 83 ;Industrial.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 84 ;Terciario.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 85 ;Equipamiento Dotacional.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 87 ;Otras superficies artificiales.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
+        set fuel 0.0
+        set flam 0.0
+        set cluster "sin vegetacion"
+        if Visualisation = "Fueltype" [set pcolor [155 155 155]] ;;Gris
       ]
 
-
-      fueltype = 101 ;Talas.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 102 ;
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 103 ;Cortafuegos.
+      ;Cursos de agua; Suministros de agua; Lagunas; Pantano o embalse; Laguna de alta montaña
+      (member? fueltype [611 863 6121 6122 6123])
       [
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
+        set cluster "agua"
+        if Visualisation = "Fueltype" [set pcolor [34 113 179]] ;;Azul
       ]
 
-      fueltype = 432 ;Superficie Desarboladas quemadas.
+      ;Cultivos; Cultivos con arbolado disperso; Prado; Prado con setos; Mosaico Agrícola con artificial;
+      (member? fueltype [71 72 73 74 75 ])
       [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 441 ;Acantilados Marinos.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 442 ;Afloramientos rocosos.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 443 ;Canchales.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-        fueltype = 452 ;Roturado no agrícola.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 511 ;Zonas pantanosas.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 512 ;Turberas.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 521 ;Marismas.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 611 ;Cursos de agua.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 622 ;Estuarios.
-      [
-        set fuel 0.3
-        set flam 0.3
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 811 ;Urbano Continuo.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 812 ;Urbano Discontinuo.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 861 ;Transportes
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 862 ;Energía
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 863 ;Suministros de agua.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 864 ;Telecomunicaciones.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 865 ;Residuos.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 4542 ;Otras zonas erosionadas.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 6121 ;Lagunas.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 6122 ;Pantano o embalse.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
-      ]
-      fueltype = 6123 ;Laguna de alta montaña.
-      [
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [100 0 0]] ;;Rojo
-        ;set pcolor [95 120 117]
+        set fuel 0.2
+        set flam 0.2
+        set cluster "poca vegetacion"
+        if Visualisation = "Fueltype" [set pcolor [28 120 49]] ;;Vede Oscuro
       ]
 
       [
@@ -666,18 +442,12 @@ to landscape
         set fuera_mapa true
         set fuel 0.0
         set flam 0.0
+        set cluster "fuera de mapa"
         if Visualisation = "Fueltype" [set pcolor [173 216 230] ] ;Azul claro
         ;set pcolor [38 41 54]
       ]
     )
-    if pxcor = 96 and pycor = 93
-      [
-        ;;En caso de no ser ninguno de estos tipos:
-        set fuera_mapa true
-        set fuel 0.0
-        set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [0 0 255] ] ;Azul Oscuro
-      ]
+
     ;set flam flam-level ;para establecer todos los patches con el mismo nivel de flam y fuel
     ;set fuel fuel-level
     ;if Visualisation = "Flammability" [
