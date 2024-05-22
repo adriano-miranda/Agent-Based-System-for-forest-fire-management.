@@ -21,6 +21,7 @@ globals
 
   t ;;Para la función de vectorizar
   t30
+
 ]
 
 breed [fires fire]
@@ -51,8 +52,6 @@ patches-own
 [
   fuel
   flam
-  slope
-  aspect
   windspe
   winddir
   globspe
@@ -69,6 +68,7 @@ patches-own
 
   fueltype
   landusetype
+  slope
   fuera_mapa
 
   water?
@@ -91,12 +91,17 @@ to setup
 
   if scenario = 0  ; manual wind speed and direction input
     [
-      set stoptime 1530 * rescale ; 25.5 hours between ignition ans start of firefighting
+      ;Cada tick representa 1 min
+      set stoptime 1440 * rescale ; 1 día (24 horas) hours
       set wind-direction 55
 
       ;Cargar el mapa
       load-GIS-0
+      ;Mostrar el mapa
       landscape
+      ;Trnasformación de coordenadas geográficas a coordenadas en nuestro documento .asc
+      geoCoords-ascCoords
+
       ask patches with [ignition?] [ignite]
     ]
 
@@ -110,14 +115,15 @@ to load-GIS-0
   ;; Cargar los archivos de datos
   let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible.asc"
   let landuseData gis:load-dataset "DATA_GAL/UsoSuelo.asc"
+  let slopeData gis:load-dataset "DATA_GAL/relieve_normalized.asc"
 
   ;; Obtener las dimensiones del mapa y redimensionar el mundo NetLogo
   let spec-rescale 1  ;; Asumimos que rescale es 1, cambiar si es necesario
   let new-world-width ((gis:width-of fueltypeData) * spec-rescale)
   let new-world-height ((gis:height-of fueltypeData) * spec-rescale)
 
-  print((gis:width-of fueltypeData))
-  print(gis:height-of fueltypeData)
+  ;print((gis:width-of fueltypeData))
+  ;print(gis:height-of fueltypeData)
   resize-world 0 (new-world-width - 1) 0 (new-world-height - 1)
   set-patch-size 900 / new-world-width  ; Tamaño de parche relativo al tamaño del mundo
   let envelope gis:envelope-of fueltypeData
@@ -126,6 +132,7 @@ to load-GIS-0
   ;; Aplicar el raster de combustible
   gis:apply-raster fueltypeData fueltype
   gis:apply-raster landuseData landusetype
+  gis:apply-raster slopeData slope
 
   ;; Inicializar variables de parches
   ask patches [
@@ -136,13 +143,14 @@ to load-GIS-0
     set fuera_mapa false
     set nonfuel? false
   ]
-  print("fueltype del patch 83 80 :")
-  show [fueltype] of patch 83 80
-  print("landusetype del patch 83 80 :")
-  show [landusetype] of patch 83 80
+  ;print("fueltype del patch 83 80 :")
+  ;show [fueltype] of patch 83 80
+  ;print("landusetype del patch 83 80 :")
+  ;show [landusetype] of patch 83 80
 
   ;; Rellenar los valores de fueltype con datos de UsoSuelo donde fueltype es 0
   ask patches [
+    ;Si no hay datos sobre la vegetación entonces utilizo los datos sobre el uso del terreno.
     if (fueltype != 1) and (fueltype != 2) and (fueltype != 3) and (fueltype != 4) and (fueltype != 5) and (fueltype != 6) and (fueltype != 7) and (fueltype != 8) and (fueltype != 9) and (fueltype != 10) and (fueltype != 11) and (fueltype != 12) and (fueltype != 13)  [
 
       ;show [fueltype] of patch  pxcor pycor
@@ -157,6 +165,36 @@ to load-GIS-0
   ]
   ;show [fueltype] of patch  83 80
 
+end
+
+to-report shapefile-to-asc-coords [x y]
+  ;; Extraer parámetros del archivo .asc
+  let xllcorner -14131.897400000133
+  let yllcorner 4637883.999800000340
+  let cellsize 666.513583548387
+
+  ;; Calcular las coordenadas de la cuadrícula (columna, fila) basadas en las coordenadas reales (x, y)
+  let col floor ((x - xllcorner) / cellsize)
+  let row floor ((y - yllcorner) / cellsize)
+
+  ;; Reportar las coordenadas de la cuadrícula
+  report list col row
+end
+
+to geoCoords-ascCoords
+  ;; Coordenadas de ejemplo del shapefile
+  let shapefile-x 50000
+  let shapefile-y 4700000
+
+  ;; Convertir a coordenadas de la cuadrícula del archivo .asc
+  let asc-coords shapefile-to-asc-coords shapefile-x shapefile-y
+
+  ;; Extraer columna y fila
+  let col item 0 asc-coords
+  let row item 1 asc-coords
+
+  ;; Mostrar las coordenadas convertidas
+  show (word "Columna: " col " Fila: " row)
 end
 
 to ignite
@@ -274,6 +312,7 @@ end
 to landscape
   ask patches
   [
+
     (ifelse
 
       fueltype = 1 ; Pasto fino, seco y bajo. Pl leñosas < 1/3 de la superficie
@@ -627,10 +666,18 @@ to landscape
         set fuera_mapa true
         set fuel 0.0
         set flam 0.0
-        if Visualisation = "Fueltype" [set pcolor [255 255 255] ] ;;Blanco
+        if Visualisation = "Fueltype" [set pcolor [173 216 230] ] ;Azul claro
         ;set pcolor [38 41 54]
       ]
     )
+    if pxcor = 96 and pycor = 93
+      [
+        ;;En caso de no ser ninguno de estos tipos:
+        set fuera_mapa true
+        set fuel 0.0
+        set flam 0.0
+        if Visualisation = "Fueltype" [set pcolor [0 0 255] ] ;Azul Oscuro
+      ]
     ;set flam flam-level ;para establecer todos los patches con el mismo nivel de flam y fuel
     ;set fuel fuel-level
     ;if Visualisation = "Flammability" [
@@ -848,7 +895,7 @@ to spread
   [
     ;set collinear windspe * cos(subtract-headings heading winddir)
     set collinear cos(subtract-headings heading winddir)
-    let coslope cos(subtract-headings heading (aspect - 180))
+    let coslope cos(subtract-headings heading (- 180))
     let RoSx RoS * sin(heading)
     let RoSy RoS * cos(heading)
 
@@ -867,10 +914,10 @@ to spread
     set RoS ((f1 * RoS  + (1 - f1) * (((flam) ^ 1.3) + flam + w3 * windspe * abs(collinear)) + s1 * slope / 100 * coslope)) * (m1 * windmod)
 
     let f2-2 f2 * (1.2 - windmod / 1.3)
-    let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(aspect - 180)))
-    let Cy ((RoS * cos(heading)) * (f2-2) * (1 + density-mod * d1) + windY * (1.05 - f2-2) * windmod + (s1 * slope / 100 * cos(aspect - 180)))
-    ;print("SLOPE: ")
-    ;print(slope)
+    let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(- 180)))
+    let Cy ((RoS * cos(heading)) * (f2-2) * (1 + density-mod * d1) + windY * (1.05 - f2-2) * windmod + (s1 * slope / 100 * cos( - 180)))
+    print("SLOPE: ")
+    print(slope)
     ;;print("Aspect: ")
     ;;print(aspect)
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1095,7 +1142,7 @@ INPUTBOX
 60
 395
 stoptime
-1530.0
+1440.0
 1
 0
 Number
