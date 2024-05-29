@@ -22,6 +22,7 @@ globals
   t ;;Para la función de vectorizar
   t30
 
+  message-types
 ]
 
 breed [fires fire]
@@ -37,6 +38,7 @@ fires-own
 
   density
   density-mod
+
 ]
 
 fire-trucks-own
@@ -46,6 +48,9 @@ fire-trucks-own
   fire-truck-collide ;;Flag para saber si un fire-truck entró en colisión con un fuego
   contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
+  closest-fire-distance ;; distancia al fuego más cercano
+  messages  ; Lista de mensajes recibidos
+  sent-requests ;Lista de fire-trucks a los que se ha enviado un request
 ]
 
 patches-own
@@ -89,6 +94,7 @@ to setup
   ca
   set RoS-list []
   set firetruck-created false
+  setup-message-types
 
   if scenario = 0  ; manual wind speed and direction input
     [
@@ -100,9 +106,6 @@ to setup
       load-GIS-0
       ;Mostrar el mapa
       landscape
-      ;Trnasformación de coordenadas geográficas a coordenadas en nuestro documento .asc
-      geoCoords-ascCoords
-
       ask patches with [ignition?] [ignite]
     ]
 
@@ -116,7 +119,7 @@ to load-GIS-0
   ;; Cargar los archivos de datos
   let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible.asc"
   let landuseData gis:load-dataset "DATA_GAL/UsoSuelo.asc"
-  let slopeData gis:load-dataset "DATA_GAL/relieve_normalized.asc"
+  let slopeData gis:load-dataset "DATA_GAL/relieve_normalizado.asc"
 
   ;; Obtener las dimensiones del mapa y redimensionar el mundo NetLogo
   let spec-rescale 1  ;; Asumimos que rescale es 1, cambiar si es necesario
@@ -146,27 +149,107 @@ to load-GIS-0
   ]
   ;print("fueltype del patch 83 80 :")
   ;show [fueltype] of patch 83 80
-  ;print("landusetype del patch 83 80 :")
-  ;show [landusetype] of patch 83 80
 
   ;; Rellenar los valores de fueltype con datos de UsoSuelo donde fueltype es 0
   ask patches [
     ;Si no hay datos sobre la vegetación entonces utilizo los datos sobre el uso del terreno.
     if (fueltype != 1) and (fueltype != 2) and (fueltype != 3) and (fueltype != 4) and (fueltype != 5) and (fueltype != 6) and (fueltype != 7) and (fueltype != 8) and (fueltype != 9) and (fueltype != 10) and (fueltype != 11) and (fueltype != 12) and (fueltype != 13)  [
 
-      ;show [fueltype] of patch  pxcor pycor
       let newfueltype [landusetype] of patch pxcor pycor
       set fueltype newfueltype
-
-      ;show [fueltype] of patch  pxcor pycor
     ]
-
-    ;show (word "Patch (" pxcor "," pycor ") fueltype: " fueltype)
-    ;show (word "Patch (" pxcor "," pycor ") landusetype: " landusetype)
   ]
-  ;show [fueltype] of patch  83 80
 
 end
+
+to setup-message-types
+  set message-types ["Agree" "Inform" "Query_If" "Query_Ref" "Refuse" "Request"]
+end
+
+to send-message [sender receiver message-type content]
+  ;fire-trucks que reciven el mensaje
+  ask receiver [
+    set messages lput (list who message-type content) messages
+  ]
+end
+
+to process-messages
+  let processed-messages []
+  foreach messages [
+    message ->
+      let sender item 0 message
+      let message-type item 1 message
+      let content item 2 message
+      ifelse message-type = "Request" [
+        ; Procesar Request
+        show (word "Request received from " sender " with content: " content)
+        ;show (word "Request received from (fire-truck " sender ") with content: " content)
+        calculate-closest-fire-distance
+        ;Si un agente reciveun request se contesta con un inform
+        ;Identifico al agente con su identificador de fire-truck-id-map
+        ;let sender-agent first map [id-agent -> item 1 id-agent] filter [id-agent -> item 0 id-agent = sender] fire-truck-id-map
+      let sender-agent one-of fire-trucks with [who = sender]
+      ask sender-agent [
+          send-message myself self "Inform" (word "Distancia la fuego más cercano: " closest-fire-distance)
+          ;print (word "Camión " my-id ": Distancia al fuego más cercano: " closest-fire-distance ".")
+        ]
+      ] [
+        if message-type = "Inform" [
+          ; Procesar Inform
+          ;show (word "Inform received from " sender " with content: " content)
+          show (word "Inform received from (fire-truck " sender ") with content: " content)
+      ]
+        ; Añadir otros tipos de mensajes aquí
+      ]
+      set processed-messages lput message processed-messages
+  ]
+  set messages filter [message -> not member? message processed-messages] messages
+
+end
+
+;Transformación de coordenadas geográficas a coordenadas en nuestro documento .asc
+to geoCoords-ascCoords
+  ;; Coordenadas de ejemplo del shapefile
+  ;let shapefile-x 50000
+  ;let shapefile-y 4700000
+  let shapefile-x UTM-X
+  let shapefile-y UTM-Y
+
+  ;Convierto string a cadena
+  let numeroX read-from-string shapefile-x  ;; Convertir cadena a número
+  let numeroY read-from-string shapefile-y  ;; Convertir cadena a número
+
+  ;; Convertir a coordenadas de la cuadrícula del archivo .asc
+  let asc-coords shapefile-to-asc-coords numeroX numeroY
+
+  ;; Extraer columna y fila
+  let col item 0 asc-coords
+  let row item 1 asc-coords
+
+  ;; Mostrar las coordenadas convertidas
+  ;show (word "Columna: " col " Fila: " row)
+  ;Prendo fuego en las coordenadas especificadas por el usuario
+  ask patch col row
+    [
+      let directions [0 90 180 270]
+      let i 0
+      repeat 4
+      [sprout-fires 1
+        [
+          set heading item i directions
+          set size 0.5
+          set cell list xcor ycor
+          set color red
+          fd 0.00001
+          set RoS flam
+        ]
+        set i i + 1
+      ]
+    ]
+    stop
+
+end
+
 
 to-report shapefile-to-asc-coords [x y]
   ;; Extraer parámetros del archivo .asc
@@ -180,22 +263,6 @@ to-report shapefile-to-asc-coords [x y]
 
   ;; Reportar las coordenadas de la cuadrícula
   report list col row
-end
-
-to geoCoords-ascCoords
-  ;; Coordenadas de ejemplo del shapefile
-  let shapefile-x 50000
-  let shapefile-y 4700000
-
-  ;; Convertir a coordenadas de la cuadrícula del archivo .asc
-  let asc-coords shapefile-to-asc-coords shapefile-x shapefile-y
-
-  ;; Extraer columna y fila
-  let col item 0 asc-coords
-  let row item 1 asc-coords
-
-  ;; Mostrar las coordenadas convertidas
-  show (word "Columna: " col " Fila: " row)
 end
 
 to ignite
@@ -216,6 +283,8 @@ to ignite
 end
 
 to click-ignite
+
+
   if mouse-down?
   [ask patch mouse-xcor mouse-ycor
     [
@@ -244,6 +313,8 @@ to click-firetruck
     [
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
+      set messages [] ;;Mensanjes
+      set sent-requests [] ;Mensajes tipo Request enviados
       set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
       set fire-truck-collide false
       set apagando_fuego false
@@ -253,6 +324,7 @@ to click-firetruck
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Firetrucks-speed
       setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
+
     ]
     set firetruck-created true
   ]
@@ -262,30 +334,50 @@ to click-firetruck
   ]
 end
 
+;; Calcular la distancia al fuego
+to calculate-closest-fire-distance
+  let nearest-fire min-one-of fires [distance myself]
+  ifelse any? fires [
+    set closest-fire-distance distance nearest-fire
+  ] [
+    set closest-fire-distance 1000000 ;; Si no hay fuegos, establecer distancia a infinito
+  ]
+end
+
 to go
   tick
-  if not any? fires
+
+  ifelse not any? fires
   [
     set avgRoS mean RoS-list
     stop
+  ][
+    let RoS-at-tick mean [RoS] of fires
+    set RoS-list lput RoS-at-tick RoS-list
   ]
-  let RoS-at-tick mean [RoS] of fires
-  set RoS-list lput RoS-at-tick RoS-list
 
   ;;if dynawind? [dynawind]
   wind-calc
   spread
   estrategia
+  consume
+
   ;;check-and-extinguish-fires
   ask fire-trucks [
     if apagando_fuego = true [contar-ticks]
+    ;Cada dire´truck envía una petición request a los demás fire-trucks
+    ask other fire-trucks [
+      if not member? [who] of self sent-requests [
+        send-message myself self "Request" "¿Cuál es tu distancia al fuego más cercano?"
+        set sent-requests lput [who] of self sent-requests
+      ]
+    ]
+    process-messages
   ]
 
-  consume
   ;cada pixel = area total Galicia / total pixeles = 2957500 / 96666 = 30,5 ha
   set area (count patches with [burned?] * 30.5 ) ;pixeles quemados * hectareas de cada pixel
   ;;if vectorshow? [vectorshow] ; diagnostic
-
 
   if stoptime > 0
   [if ticks >= stoptime
@@ -301,10 +393,8 @@ to contar-ticks
 end
 
 to estrategia
-    if Estrategy = "MIN_DISTANCE"[move-fire-trucks-nearest]
-    if Estrategy = "MAX_DISTANCE"[move-fire-trucks-further]
-    if Estrategy = "MAX_RoS"[move-fire-trucks-MaxRoS]
-    if Estrategy = "MIN_RoS"[move-fire-trucks-MinRoS]
+    if Estrategy = "ONE_TO_MIN_DISTANCE"[move-fire-trucks-nearest]
+
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -437,6 +527,7 @@ to landscape
         if Visualisation = "Fueltype" [set pcolor [28 120 49]] ;;Vede Oscuro
       ]
 
+
       [
         ;;En caso de no ser ninguno de estos tipos:
         set fuera_mapa true
@@ -448,6 +539,103 @@ to landscape
       ]
     )
 
+    ;; Slope visualisation
+    if Visualisation = "Slope" [
+      ifelse slope < 0.5 [set pcolor [210 180 140]]
+      [
+        ifelse slope < 2.5 [set pcolor [160 82 45]]
+        [
+          ifelse slope < 5 [set pcolor [110 44 0]]
+          [
+            ifelse slope < 10 [set pcolor [210 180 140]]
+            [
+              ifelse slope < 20 [set pcolor [188 143 143]]
+              [
+                ifelse slope < 30 [set pcolor [165 42 42]]
+                [
+                  ifelse slope < 40 [set pcolor [139 69 19]]
+                  [
+                    ifelse slope < 50 [set pcolor [160 82 45]]
+                    [
+                      ifelse slope < 60 [set pcolor [110 44 0]]
+                      [
+                        ifelse slope < 70 [set pcolor [101 67 33]]
+                        [
+                          ifelse slope < 80 [set pcolor [92 51 23]]
+                          [
+                            ifelse slope < 90 [set pcolor [79 60 38]]
+                            [set pcolor [59 29 0]]
+                          ]
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+   ;; Flammability visualisation: Escala de naranjas (más oscuro implica más inflamable)
+    if Visualisation = "Flammability" [
+      ifelse flam < 0.1 [set pcolor [255 235 205]]
+      [
+        ifelse flam < 0.2 [set pcolor [255 213 153]]
+        [
+          ifelse flam < 0.3 [set pcolor [255 191 102]]
+          [
+            ifelse flam < 0.4 [set pcolor [255 170 51]]
+            [
+              ifelse flam < 0.5 [set pcolor [255 148 0]]
+              [
+                ifelse flam < 0.6 [set pcolor [223 127 0]]
+                [
+                  ifelse flam < 0.7 [set pcolor [191 106 0]]
+                  [
+                    ifelse flam < 0.8 [set pcolor [159 85 0]]
+                    [
+                      ifelse flam < 0.9 [set pcolor [127 64 0]]
+                      [set pcolor [95 42 0]] ; Para flam >= 0.9
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+
+    ;; Fuel visualisation: Escala de naranjas (más oscuro implica más inflamable)
+    if Visualisation = "Fuel" [
+      ifelse fuel < 0.1 [set pcolor [255 235 205]]
+      [
+        ifelse fuel < 0.2 [set pcolor [255 213 153]]
+        [
+          ifelse fuel < 0.3 [set pcolor [255 191 102]]
+          [
+            ifelse fuel < 0.4 [set pcolor [255 170 51]]
+            [
+              ifelse fuel < 0.5 [set pcolor [255 148 0]]
+              [
+                ifelse fuel < 0.6 [set pcolor [223 127 0]]
+                [
+                  ifelse fuel < 0.7 [set pcolor [191 106 0]]
+                  [
+                    ifelse fuel < 0.8 [set pcolor [159 85 0]]
+                    [
+                      ifelse fuel < 0.9 [set pcolor [127 64 0]]
+                      [set pcolor [95 42 0]] ; Para fuel >= 0.9
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
     ;set flam flam-level ;para establecer todos los patches con el mismo nivel de flam y fuel
     ;set fuel fuel-level
     ;if Visualisation = "Flammability" [
@@ -558,62 +746,40 @@ to fSlope-Aspect
   set fireY 3 * y-slope + fireY
 end
 
-;;Estrategia de camiones de bomberos para dirgirse al más cercano
+;; Estrategia para enviar mensajes y actuar según la distancia más corta
 to move-fire-trucks-nearest
-    ask fire-trucks [
-      let nearest-fire min-one-of fires [distance myself]
-      if any? fires[
-        face nearest-fire
-        apagar_fuego
+  ask fire-trucks [
+
+    ;print (word "Camión " my-id ": Distancia al fuego más cercano: " closest-fire-distance ".")
+    calculate-closest-fire-distance ;; Calcular la distancia al fuego más cercano
+    if any? fires [
+      let min-distance min [closest-fire-distance] of fire-trucks ;; Determinar la distancia mínima entre los camiones
+      if closest-fire-distance = min-distance [
+        face min-one-of fires [distance myself] ;; Face al fuego más cercano
+        apagar_fuego ;; Realizar la acción correspondiente
         check-and-extinguish-fires
-      ]if not any? fires [
+      ]
+    ] if not any? fires [
       print "No hay fuegos por apagar."
-      ]
     ]
-end
-
-to move-fire-trucks-further
-    ask fire-trucks [
-      let further-fire max-one-of fires [distance myself]
-      if any? fires[
-        face further-fire
-        apagar_fuego
-        check-and-extinguish-fires
-      ]if not any? fires [
-        print "No hay fuegos por apagar."
-      ]
-    ]
-end
-
-;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
-to move-fire-trucks-MaxRoS
-
-    ask fire-trucks [
-      let max_RoS max-one-of fires [RoS]
-      if any? fires[
-        face max_RoS
-        apagar_fuego
-        check-and-extinguish-fires
-      ] if not any? fires [
-        print "No hay fuegos por apagar."
-      ]
   ]
 end
 
-;; Estrategia de camiones de bomberos para dirigirse a fuego de menor RoS
-to move-fire-trucks-MinRoS
+;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
+;to move-fire-trucks-MaxRoS
+;    ask fire-trucks [
+;      let max_RoS max-one-of fires [RoS]
+;      if any? fires[
+;        face max_RoS
+;        apagar_fuego
+;        check-and-extinguish-fires
+;      ] if not any? fires [
+;        print "No hay fuegos por apagar."
+;      ]
+;  ]
+;end
 
-    ask fire-trucks [
-      let min_RoS min-one-of fires [RoS]
-      if any? fires [
-        face min_RoS
-        check-and-extinguish-fires
-        apagar_fuego
-      ]if not any? fires [
-        print "No hay fuegos por apagar."
-      ]
-    ]
-end
+
 
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
@@ -686,10 +852,9 @@ to spread
     let f2-2 f2 * (1.2 - windmod / 1.3)
     let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(- 180)))
     let Cy ((RoS * cos(heading)) * (f2-2) * (1 + density-mod * d1) + windY * (1.05 - f2-2) * windmod + (s1 * slope / 100 * cos( - 180)))
-    print("SLOPE: ")
-    print(slope)
-    ;;print("Aspect: ")
-    ;;print(aspect)
+    ;print("SLOPE: ")
+    ;print(slope)
+
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -723,10 +888,10 @@ to spread
  ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguiete patch no existe, entonces muere
     if (patch-ahead 1 != nobody) [
       ask patch-ahead 1 [
-        print("FUEL: ")
-        print(fuel)
-        print("FLAM: ")
-        print(flam)
+        ;print("FUEL: ")
+        ;print(fuel)
+        ;print("FLAM: ")
+        ;print(flam)
 
         if flam < 1 [
           set flam flam + (0.005 * [RoS] of myself) / (1 + distance myself) ^ 2
@@ -893,9 +1058,9 @@ NIL
 
 SLIDER
 7
-137
+186
 179
-170
+219
 wind-speed
 wind-speed
 0.01
@@ -919,9 +1084,9 @@ Number
 
 SLIDER
 7
-171
+220
 179
-204
+253
 wind-direction
 wind-direction
 0
@@ -1043,7 +1208,7 @@ CHOOSER
 109
 Visualisation
 Visualisation
-"Fueltype" "Flamability"
+"Fueltype" "Slope" "Flammability" "Fuel"
 0
 
 BUTTON
@@ -1174,11 +1339,11 @@ NIL
 CHOOSER
 206
 190
-371
+386
 235
 Estrategy
 Estrategy
-"MIN_DISTANCE" "MAX_DISTANCE" "MAX_RoS" "MIN_RoS"
+"ONE_TO_MIN_DISTANCE"
 0
 
 SLIDER
@@ -1195,6 +1360,55 @@ Delay
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+12
+527
+162
+545
+Ignition using coordinates
+10
+0.0
+1
+
+INPUTBOX
+8
+544
+120
+604
+UTM-X
+97000
+1
+0
+String
+
+INPUTBOX
+120
+544
+241
+604
+UTM-Y
+4690545
+1
+0
+String
+
+BUTTON
+8
+603
+241
+636
+Ignition
+geoCoords-ascCoords
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
