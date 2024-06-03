@@ -3,7 +3,7 @@
 ;;;;; Author: Adriano Miranda Seoane
 ;;;;; 2024
 
-extensions [gis palette]
+extensions [gis palette string]
 
 globals
 [
@@ -23,6 +23,8 @@ globals
   t30
 
   message-types
+  finished_messages ;Flag para saber cuando termina la comunicación entre agentes
+
 ]
 
 breed [fires fire]
@@ -50,9 +52,8 @@ fire-trucks-own
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   closest-fire-distance ;; distancia al fuego más cercano
   messages  ; Lista de mensajes recibidos
-  sent-requests ;Lista de fire-trucks a los que se ha enviado un request
-  sent-informs ;Lista de fire-trucks a los que se ha enviado un request
-  distancesList ;Lista de distancias minimas
+  distancesList ;Lista de distancias mínimasa fuegos
+
 ]
 
 patches-own
@@ -97,6 +98,7 @@ to setup
   set RoS-list []
   set firetruck-created false
   setup-message-types
+  set finished_messages false
 
   if scenario = 0  ; manual wind speed and direction input
     [
@@ -190,7 +192,7 @@ to process-messages
       if message-type = "Inform" [
         ; Procesar Inform
         show (word "Inform received from " sender " with content: " content)
-        set distancesList lput (extract-distance content) distancesList  ; Añadir la distancia a la lista de distancias recibidas
+
       ]
     ]
     set processed-messages lput message processed-messages
@@ -198,37 +200,6 @@ to process-messages
   set messages filter [message -> not member? message processed-messages] messages
 end
 
-to-report extract-distance [content]
-  ; Extraer la distancia del contenido del mensaje
-  let parts custom-split ":" content
-  report read-from-string item 1 parts
-end
-
-to-report custom-split [delimiter str]
-  let result []
-  let current ""
-  foreach (list-to-string str) [char ->
-    ifelse char = delimiter [
-      set result lput current result
-      set current ""
-    ] [
-      set current (word current char)
-    ]
-  ]
-  set result lput current result
-  report result
-end
-
-to-report list-to-string [str]
-  let result []
-  let length-str length str
-  let i 0
-  while [i < length-str] [
-    set result lput item i str result
-    set i (i + 1)
-  ]
-  report result
-end
 
 ;Transformación de coordenadas geográficas a coordenadas en nuestro documento .asc
 to geoCoords-ascCoords
@@ -337,9 +308,8 @@ to click-firetruck
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
       set messages [] ;;Mensanjes
-      set sent-requests [] ;Mensajes tipo Request enviados
-      set sent-Informs [] ;Mensajes tipo Inform enviados
-      set distancesList [] ;Lista de distancias mínimas
+
+
       set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
       set fire-truck-collide false
       set apagando_fuego false
@@ -349,7 +319,7 @@ to click-firetruck
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Firetrucks-speed
       setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
-
+      set  distancesList[] ;Lista de distancias mínimasa fuegos
     ]
     set firetruck-created true
   ]
@@ -412,7 +382,8 @@ end
 
 to estrategia
 
-    if Estrategy = "ONE_TO_MIN_DISTANCE"[move-fire-trucks-nearest]
+    if Estrategy = "ONE_MIN_DISTANCE"[one-min-distance]
+    if Estrategy = "ALL_MIN_DISTANCE"[all-min-distance]
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -764,60 +735,76 @@ to fSlope-Aspect
   set fireY 3 * y-slope + fireY
 end
 
-;; Estrategia para enviar mensajes y actuar según la distancia más corta
-to move-fire-trucks-nearest
 
-  ; 1. Envío de solicitudes de todos los fire-trucks.
+;Estrategia sin comunicación, simplemente todos los fire-trucks se desplazan hacia el fuego más cercano.
+to all-min-distance
   ask fire-trucks [
-    ask other fire-trucks [
-      if not member? [who] of self sent-requests [
-        send-message self myself "Request" "¿Cuál es tu distancia al fuego más cercano?"
-
-        set sent-requests lput [who] of self sent-requests
-
-        ; 2. Procesamiento de los mensajes después del envío.
-        process-messages
+      let nearest-fire min-one-of fires [distance myself]
+      if any? fires[
+        face nearest-fire
+        apagar_fuego
+        check-and-extinguish-fires
+      ]if not any? fires [
+      print "No hay fuegos por apagar."
       ]
     ]
+end
+
+;; Estrategia para enviar mensajes y el fire-truck más cercano al fuego que se desplace para extinguirlo.
+to one-min-distance
+
+  ;Todos los agentes envían Request a todos los demás agentes y contestan con un Inform
+  if finished_messages = false [
+    ask fire-trucks [
+      ask other fire-trucks [
+
+        send-message self myself "Request" "¿Cuál es tu distancia al fuego más cercano?"
+        process-messages
+
+        ;Envío Inform
+        let dist distance min-one-of fires [distance myself]
+        send-message self myself "Inform" (word "Distancia al fuego más cercano: " dist)
+        process-messages
+
+        ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
+        ask other fire-trucks[
+          if not member? dist distancesList ;si no está en lista lo añado
+          [set distancesList lput dist distancesList]  ; Añadir la distancia a la lista de distancias recibidas
+        ]
+        ;print(who)
+        ;print(distancesList)
+      ]
+    ]
+    set finished_messages true
   ]
 
-
-  ; 3. Respuesta al Request recibido enviando un Inform.
+  ; Procesar mensajes Inform recibidos
   ask fire-trucks [
-
-    if member? who sent-requests [
-
-      ask other fire-trucks [
-        if not member? [who] of self sent-informs [
-          calculate-closest-fire-distance
-
-          send-message self myself "Inform" (word "Distancia al fuego más cercano: " closest-fire-distance)
-          set sent-informs lput [who] of self sent-informs
-        ]
-      ]
-    ]
-
-    ; Procesar mensajes Inform recibidos
     process-messages
 
     ; Comparar la distancia más corta
-    let minima closest-fire-distance
+    calculate-closest-fire-distance
+    let my_dist closest-fire-distance
+    let soy_menor true
+
     foreach distancesList [element ->
-      if element < minima [set minima element]
+      if element < my_dist [
+        set soy_menor false
+      ]
     ]
+     if(soy_menor)[
+        face min-one-of fires [distance myself] ;; Face al fuego más cercano
+        apagar_fuego ;;
+        check-and-extinguish-fires
+      ]
 
-    if minima = closest-fire-distance [
-      face min-one-of fires [distance myself] ;; Face al fuego más cercano
-      apagar_fuego ;; Realizar la acción correspondiente
-      check-and-extinguish-fires
+      if not any? fires [
+        print "No hay fuegos por apagar."
+      ]
     ]
-
-    if not any? fires [
-      print "No hay fuegos por apagar."
-    ]
-  ]
 
 end
+
 
 
 ;;Estrategia de camiones de bomberos para dirigirse a fuego de mayor RoS
@@ -1120,7 +1107,7 @@ wind-speed
 wind-speed
 0.01
 50
-13.01
+15.01
 1
 1
 NIL
@@ -1368,7 +1355,7 @@ Firetrucks-speed
 Firetrucks-speed
 0
 1
-0.7
+0.8
 0.1
 1
 NIL
@@ -1398,7 +1385,7 @@ CHOOSER
 235
 Estrategy
 Estrategy
-"ONE_TO_MIN_DISTANCE"
+"ALL_MIN_DISTANCE" "ONE_MIN_DISTANCE"
 0
 
 SLIDER
