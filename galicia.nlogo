@@ -767,13 +767,16 @@ end
 ;; Estrategia para enviar mensajes y el fire-truck más cercano al fuego que se desplace para extinguirlo.
 to one-min-distance
 
-  ;Todos los agentes envían Request a todos los demás agentes y contestan con un Inform
+  ;Todos los agentes envían Reques1 a todos los demás agentes y contestan con un Inform
   if finished_messages = false [
     ask fire-trucks [
       ask other fire-trucks [
 
-        send-message self myself "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request
+        send-message self myself "Request" "REQUEST1: ¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
+
+        ;send-message self myself "Request" "REQUEST2: ¿VAS A APAGAR EL FUEGO?";Envío mensaje Request acción ir apagar el fuego. Debe ser contestado con un agree si la distancia es mínima o un Refuse en caso contrario
+        ;process-messages
 
         send-message self myself "Agree" (word "Action: Apagar fuego. Condition: ¿Estás más cerca que yo? ")  ;Envío mensaje Agree
         process-messages
@@ -807,7 +810,7 @@ to one-min-distance
       if  agrees != [] [
 
         foreach agrees [ elemento ->
-          print(elemento)
+          ;print(elemento)
           send-message self elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el más cerano al fuego ")  ;Envío mensaje Refuse
           process-messages
         ]
