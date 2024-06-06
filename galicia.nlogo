@@ -22,12 +22,14 @@ globals
   t ;;Para la función de vectorizar
   t30
 
+  messages
   message-types
   finished_messages ;Flag para saber cuando termina la comunicación entre agentes
 
 ]
 
 breed [fires fire]
+breed [coordinadores coordinador]
 breed [fire-trucks fire-truck]
 breed [vectors vector]
 
@@ -40,7 +42,6 @@ fires-own
 
   density
   density-mod
-
 ]
 
 fire-trucks-own
@@ -51,11 +52,18 @@ fire-trucks-own
   contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   closest-fire-distance ;; distancia al fuego más cercano
-  messages  ; Lista de mensajes recibidos
+
+  apago_fuego ; Flag para saber si soy el fire-truck que debe apagar el fuego
   distancesList ;Lista de distancias mínimasa fuegos
   requests1 ;Lista de requests recibidos tipo 1
   requests2 ;Lista de requests recibidos tipo 2
+]
 
+coordinadores-own
+[
+  distancesList ;Lista de distancias mínimasa fuegos
+  requests1 ;Lista de requests recibidos tipo 1
+  requests2 ;Lista de requests recibidos tipo 2
 ]
 
 patches-own
@@ -101,7 +109,14 @@ to setup
   set firetruck-created false
   setup-message-types
   set finished_messages false
+  set messages []
 
+  create-coordinadores 1[
+    set distancesList []
+
+    set requests1 []
+    set requests2 []
+  ]
   if scenario = 0  ; manual wind speed and direction input
     [
       ;Cada tick representa 1 min
@@ -172,27 +187,28 @@ to setup-message-types
   set message-types ["Agree" "Inform" "Query_If" "Query_Ref" "Refuse" "Request"]
 end
 
-to send-message [sender receiver id  message-type content]
+to send-message [sender receiver message-type content]
   ;fire-trucks que reciven el mensaje
-  ask receiver [
-    set messages lput (list sender receiver id message-type content) messages
 
+  ask receiver [
+    set messages lput (list sender receiver message-type content) messages
   ]
 end
 
 to process-messages
   let processed-messages []
+
   foreach messages [message ->
     let sender item 0 message
     let receiver item 1 message
-    let id item 2 message
-    let message-type item 3 message
-    let content item 4 message
+    let message-type item 2 message
+    let content item 3 message
+
     ifelse message-type = "Request" [
       ; Procesar Request
+
       show (word "Request received from " sender " with content: " content)
-      if id = 1 [ask receiver [set requests1 lput sender requests1]]
-      if id = 2 [ask receiver [set requests2 lput sender requests2]]
+
       ; Aquí se podría enviar automáticamente el Inform, pero ya lo hacemos en move-fire-trucks-nearest
     ] [
       if message-type = "Inform" [
@@ -291,7 +307,6 @@ end
 
 to click-ignite
 
-
   if mouse-down?
   [ask patch mouse-xcor mouse-ycor
     [
@@ -320,11 +335,10 @@ to click-firetruck
     [
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
-      set messages [] ;;Mensanjes
-
 
       set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
       set fire-truck-collide false
+      set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
       set requests1 [] ;Para saber si ha recibido un Request
       set requests2 [] ;Para saber si ha recibido un Request
       set apagando_fuego false
@@ -396,7 +410,7 @@ to contar-ticks
 end
 
 to estrategia
-
+    if Estrategy = "COORD_ONE_MIN_DISTANCE"[coordinated-one-min-distance]
     if Estrategy = "ONE_MIN_DISTANCE"[one-min-distance]
     if Estrategy = "ALL_MIN_DISTANCE"[all-min-distance]
 end
@@ -773,8 +787,9 @@ to one-min-distance
     ask fire-trucks [
       ask other fire-trucks [
 
-        send-message self myself 1 "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
+        send-message myself self "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
+        ask myself [set requests1 lput myself requests1]
 
       ]
     ]
@@ -785,10 +800,13 @@ to one-min-distance
         if  requests1 != [] [
 
           foreach requests1 [ elemento ->
+
             let dist distance min-one-of fires [distance myself]
-            send-message self elemento 1 "Inform" (word "Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
-            process-messages
-          ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
+            ask elemento[
+              send-message myself elemento "Inform" (word "Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
+              process-messages
+           ]
+            ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
           ask other fire-trucks[
 
             if not member? dist distancesList ;si no está en lista lo añado
@@ -808,8 +826,9 @@ to one-min-distance
     ask fire-trucks [
       ask other fire-trucks [
 
-        send-message self myself 2 "Request" "¿VAS A APAGAR EL FUEGO?";Envío mensaje Request acción ir apagar el fuego. Debe ser contestado con un agree si la distancia es mínima o un Refuse en caso contrario
+        send-message myself self "Request" "¿VAS A APAGAR EL FUEGO?";Envío mensaje Request acción ir apagar el fuego. Debe ser contestado con un agree si la distancia es mínima o un Refuse en caso contrario
         process-messages
+        ask myself [set requests2 lput myself requests2]
 
       ]
     ]
@@ -818,68 +837,101 @@ to one-min-distance
   ]
   ; Si recibi un request de tipo 2 envío un Agree o un refuse
   ask fire-trucks [
-      ask other fire-trucks [
-        if  requests2 != [] [
 
-          foreach requests2 [ elemento ->
-          ; Comparar la distancia más corta
-          calculate-closest-fire-distance
-          let my_dist closest-fire-distance
-          let soy_menor true
+    if  requests2 != [] [
+      foreach requests2 [ elemento ->
+      ; Comparar la distancia más corta
+      calculate-closest-fire-distance
+      let my_dist closest-fire-distance
+      let soy_menor true
 
-          foreach distancesList [element ->
-            if element < my_dist [
-              set soy_menor false
-            ]
-          ]
-          if(soy_menor)[
-            send-message self elemento 1 "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
-            process-messages
-            face min-one-of fires [distance myself] ;; Face al fuego más cercano
-            apagar_fuego ;;
-            check-and-extinguish-fires
-          ]
-          if not (soy_menor) [
-            send-message self elemento 1 "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
-            process-messages
-          ]
-          if not any? fires [
-            print "No hay fuegos por apagar."
-          ]
+      foreach distancesList [element ->
+        if element < my_dist [
+          set soy_menor false
         ]
-        set requests2 []
+      ]
+
+      if(soy_menor)[
+        ask elemento[
+          send-message myself elemento "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+          process-messages
+        ]
+        set apago_fuego true
+      ]
+      if not (soy_menor) [
+        ask elemento[
+          send-message myself elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+          process-messages
+        ]
+      ]
+      ]
+    set requests2 []
+    ]
+  ]
+
+  ask fire-trucks[
+    if (apago_fuego = true) [
+      face min-one-of fires [distance myself] ;; Face al fuego más cercano
+      apagar_fuego ;;
+      check-and-extinguish-fires
+    ]
+  ]
+  if not any? fires [
+    print "No hay fuegos por apagar."
+  ]
+
+end
+
+to coordinated-one-min-distance
+
+  ;El coordinador envía un mensaje request a los agentes
+  if finished_messages = false [
+    ask coordinadores [
+      ask fire-trucks [
+
+        send-message myself self "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
+        process-messages
+        ask myself [set requests1 lput myself requests1]
       ]
     ]
   ]
 
-  ; apagar fuego o no dependiendo de la información obtenida
+  ;Todo los agentes envian un inform con su distancia mínima al coordinador
   ask fire-trucks [
+    ask coordinadores [
+      if  requests1 != [] [
+        foreach requests1 [ elemento ->
+          let dist 0
+          ask elemento[set dist distance min-one-of fires [distance self]]
+          send-message elemento myself "Inform" (word "Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
+          process-messages
+        ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
 
-    process-messages
-
-    ; Comparar la distancia más corta
-    calculate-closest-fire-distance
-    let my_dist closest-fire-distance
-    let soy_menor true
-
-    foreach distancesList [element ->
-      if element < my_dist [
-        set soy_menor false
+          if not member? dist distancesList ;si no está en lista lo añado
+          [
+            set distancesList lput dist distancesList
+          ]  ; Añadir la distancia a la lista de distancias recibidas
+        ]
+      set requests1 []
       ]
     ]
-     if(soy_menor)[
-        face min-one-of fires [distance myself] ;; Face al fuego más cercano
-        apagar_fuego ;;
-        check-and-extinguish-fires
-      ]
+  ]
 
-      if not any? fires [
-        print "No hay fuegos por apagar."
+  ;Todos los agentes envían un Request al coordinador para saber si van a apagar el fuego
+  if finished_messages = false [
+    ask fire-trucks [
+      ask coordinadores [
+
+        send-message myself self "Request" "¿VAS A APAGAR EL FUEGO?";Envío mensaje Request 2acción. Debe ser contestado con un Agree o un Refuse
+        process-messages
+        ask myself [set requests2 lput self requests2]
       ]
     ]
+    set finished_messages true
+  ]
+
 
 end
-
 
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
@@ -1439,11 +1491,11 @@ NIL
 CHOOSER
 206
 190
-386
+417
 235
 Estrategy
 Estrategy
-"ALL_MIN_DISTANCE" "ONE_MIN_DISTANCE"
+"ALL_MIN_DISTANCE" "ONE_MIN_DISTANCE" "COORD_ONE_MIN_DISTANCE"
 1
 
 SLIDER
