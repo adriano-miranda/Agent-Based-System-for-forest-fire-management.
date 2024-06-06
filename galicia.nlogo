@@ -835,6 +835,7 @@ to one-min-distance
 
     set finished_messages true
   ]
+
   ; Si recibi un request de tipo 2 envío un Agree o un refuse
   ask fire-trucks [
 
@@ -869,6 +870,7 @@ to one-min-distance
     ]
   ]
 
+  ;Los fire-trucks que hayan recibido un agree apagarán el fuego
   ask fire-trucks[
     if (apago_fuego = true) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
@@ -922,12 +924,51 @@ to coordinated-one-min-distance
     ask fire-trucks [
       ask coordinadores [
 
-        send-message myself self "Request" "¿VAS A APAGAR EL FUEGO?";Envío mensaje Request 2acción. Debe ser contestado con un Agree o un Refuse
+        send-message myself self "Request" "¿APAGO EL FUEGO?";Envío mensaje Request 2acción. Debe ser contestado con un Agree o un Refuse
         process-messages
-        ask myself [set requests2 lput self requests2]
+        set requests2 lput myself requests2
       ]
     ]
-    set finished_messages true
+  ]
+
+  ;El coordinador envía un Refuse a los fire-trucks que no deben apagar el fuego y un Agree a los que deben apagarlo
+  if (finished_messages = false) [
+    ask coordinadores [
+      ; Comparar la distancia más corta
+      let min_dist 999999
+      foreach distancesList [element ->
+        if element < min_dist    [
+          set min_dist element
+        ]
+      ]
+
+      ask fire-trucks[
+        calculate-closest-fire-distance
+
+        if(floor(min_dist) = floor(closest-fire-distance))[
+          send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+          process-messages
+          set apago_fuego true
+        ]
+        if (floor(min_dist) != floor(closest-fire-distance)) [
+
+          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+          process-messages
+        ]
+      ]
+      set finished_messages true
+    ]
+  ]
+  ;Los fire-trucks que hayan recibido un agree apagarán el fuego
+  ask fire-trucks[
+    if (apago_fuego = true) [
+      face min-one-of fires [distance myself] ;; Face al fuego más cercano
+      apagar_fuego ;;
+      check-and-extinguish-fires
+    ]
+  ]
+  if not any? fires [
+    print "No hay fuegos por apagar."
   ]
 
 
@@ -1496,7 +1537,7 @@ CHOOSER
 Estrategy
 Estrategy
 "ALL_MIN_DISTANCE" "ONE_MIN_DISTANCE" "COORD_ONE_MIN_DISTANCE"
-1
+2
 
 SLIDER
 207
