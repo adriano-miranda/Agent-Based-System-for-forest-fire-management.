@@ -52,13 +52,14 @@ fire-trucks-own
   contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   closest-fire-distance ;; distancia al fuego más cercano
-
+  ;Atributos para estrategias de comunicación:
   apago_fuego ; Flag para saber si soy el fire-truck que debe apagar el fuego
   distancesList ;Lista de distancias mínimasa fuegos
   requests1 ;Lista de requests recibidos tipo 1
   requests2 ;Lista de requests recibidos tipo 2
 ]
 
+;Coordinador para comunicación
 coordinadores-own
 [
   distancesList ;Lista de distancias mínimasa fuegos
@@ -138,9 +139,9 @@ end
 
 to load-GIS-0
   ;; Cargar los archivos de datos
-  let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible.asc"
+  let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible_miguel.asc"
   let landuseData gis:load-dataset "DATA_GAL/UsoSuelo.asc"
-  let slopeData gis:load-dataset "DATA_GAL/relieve_normalizado.asc"
+  let slopeData gis:load-dataset "DATA_GAL/pendiente.asc"
 
   ;; Obtener las dimensiones del mapa y redimensionar el mundo NetLogo
   let spec-rescale 1  ;; Asumimos que rescale es 1, cambiar si es necesario
@@ -229,7 +230,6 @@ to process-messages
   set messages filter [message -> not member? message processed-messages] messages
 end
 
-
 ;Transformación de coordenadas geográficas a coordenadas en nuestro documento .asc
 to geoCoords-ascCoords
   ;; Coordenadas de ejemplo del shapefile
@@ -270,9 +270,7 @@ to geoCoords-ascCoords
       ]
     ]
     stop
-
 end
-
 
 to-report shapefile-to-asc-coords [x y]
   ;; Extraer parámetros del archivo .asc
@@ -392,8 +390,8 @@ to go
 
   ]
 
-  ;cada pixel = area total Galicia / total pixeles = 2957500 / 96666 = 30,5 ha
-  set area (count patches with [burned?] * 30.5 ) ;pixeles quemados * hectareas de cada pixel
+  ;cada pixel = 666.513583548386805 metros x 714.5249993548368366 metros  = 476240, redondeando 47,6 ha. (esta info. está en el .asc)
+  set area (count patches with [burned?] * 47.6 ) ;pixeles quemados * hectareas de cada pixel
   ;;if vectorshow? [vectorshow] ; diagnostic
 
   if stoptime > 0
@@ -410,9 +408,9 @@ to contar-ticks
 end
 
 to estrategia
-    if Estrategy = "COORD_ONE_MIN_DISTANCE"[coordinated-one-min-distance]
-    if Estrategy = "ONE_MIN_DISTANCE"[one-min-distance]
-    if Estrategy = "ALL_MIN_DISTANCE"[all-min-distance]
+  if Estrategy = "COORD_ONE_MIN_DISTANCE"[coordinated-one-min-distance]
+  if Estrategy = "ONE_MIN_DISTANCE"[one-min-distance]
+  if Estrategy = "ALL_MIN_DISTANCE"[all-min-distance]
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -557,32 +555,56 @@ to landscape
       ]
     )
 
-    ;; Slope visualisation
-    if Visualisation = "Slope" [
-      ifelse slope < 0.5 [set pcolor [210 180 140]]
+;; Slope visualisation
+if Visualisation = "Slope" [
+  ifelse slope < 5 [set pcolor [245 222 179]] ; Brown 1
+  [
+    ifelse slope < 10 [set pcolor [222 184 135]] ; Brown 2
+    [
+      ifelse slope < 15 [set pcolor [210 180 140]] ; Brown 3
       [
-        ifelse slope < 2.5 [set pcolor [160 82 45]]
+        ifelse slope < 20 [set pcolor [160 82 45]] ; Brown 4
         [
-          ifelse slope < 5 [set pcolor [110 44 0]]
+          ifelse slope < 25 [set pcolor [139 69 19]] ; Brown 5
           [
-            ifelse slope < 10 [set pcolor [210 180 140]]
+            ifelse slope < 30 [set pcolor [110 44 0]] ; Brown 6
             [
-              ifelse slope < 20 [set pcolor [188 143 143]]
+              ifelse slope < 35 [set pcolor [101 67 33]] ; Brown 7
               [
-                ifelse slope < 30 [set pcolor [165 42 42]]
+                ifelse slope < 40 [set pcolor [92 51 23]] ; Brown 8
                 [
-                  ifelse slope < 40 [set pcolor [139 69 19]]
+                  ifelse slope < 45 [set pcolor [79 60 38]] ; Brown 9
                   [
-                    ifelse slope < 50 [set pcolor [160 82 45]]
+                    ifelse slope < 50 [set pcolor [70 42 0]] ; Brown 10
                     [
-                      ifelse slope < 60 [set pcolor [110 44 0]]
+                      ifelse slope < 60 [set pcolor [60 30 10]] ; Brown 11
                       [
-                        ifelse slope < 70 [set pcolor [101 67 33]]
+                        ifelse slope < 70 [set pcolor [50 20 0]] ; Brown 12
                         [
-                          ifelse slope < 80 [set pcolor [92 51 23]]
+                          ifelse slope < 80 [set pcolor [40 10 0]] ; Brown 13
                           [
-                            ifelse slope < 90 [set pcolor [79 60 38]]
-                            [set pcolor [59 29 0]]
+                            ifelse slope < 90 [set pcolor [30 0 0]] ; Brown 14
+                            [
+                              ifelse slope < 100 [set pcolor [20 0 0]] ; Brown 15
+                              [
+                                ifelse slope < 110 [set pcolor [10 0 0]] ; Brown 16
+                                [
+                                  ifelse slope < 120 [set pcolor [5 0 0]] ; Brown 17
+                                  [
+                                    ifelse slope < 130 [set pcolor [3 0 0]] ; Brown 18
+                                    [
+                                      ifelse slope < 140 [set pcolor [1 0 0]] ; Brown 19
+                                      [
+                                        ifelse slope < 150 [set pcolor [0 0 0]] ; Brown 20
+                                        [
+                                          set pcolor [0 0 0] ; Default brown for slope >= 150
+                                        ]
+                                      ]
+                                    ]
+                                  ]
+                                ]
+                              ]
+                            ]
                           ]
                         ]
                       ]
@@ -595,6 +617,11 @@ to landscape
         ]
       ]
     ]
+  ]
+]
+
+
+
    ;; Flammability visualisation: Escala de naranjas (más oscuro implica más inflamable)
     if Visualisation = "Flammability" [
       ifelse flam < 0.1 [set pcolor [255 235 205]]
@@ -764,7 +791,6 @@ to fSlope-Aspect
   set fireY 3 * y-slope + fireY
 end
 
-
 ;Estrategia sin comunicación, simplemente todos los fire-trucks se desplazan hacia el fuego más cercano.
 to all-min-distance
   ask fire-trucks [
@@ -842,29 +868,28 @@ to one-min-distance
     if  requests2 != [] [
       foreach requests2 [ elemento ->
       ; Comparar la distancia más corta
-      calculate-closest-fire-distance
-      let my_dist closest-fire-distance
-      let soy_menor true
+        calculate-closest-fire-distance
+        let my_dist closest-fire-distance
+        let soy_menor true
+        foreach distancesList [element ->
+          if element < my_dist [
+            set soy_menor false
+          ]
+        ]
 
-      foreach distancesList [element ->
-        if element < my_dist [
-          set soy_menor false
+        if(soy_menor)[
+          ask elemento[
+            send-message myself elemento "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+            process-messages
+          ]
+          set apago_fuego true
         ]
-      ]
-
-      if(soy_menor)[
-        ask elemento[
-          send-message myself elemento "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
-          process-messages
+        if not (soy_menor) [
+          ask elemento[
+            send-message myself elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+            process-messages
+          ]
         ]
-        set apago_fuego true
-      ]
-      if not (soy_menor) [
-        ask elemento[
-          send-message myself elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
-          process-messages
-        ]
-      ]
       ]
     set requests2 []
     ]
@@ -891,7 +916,7 @@ to coordinated-one-min-distance
     ask coordinadores [
       ask fire-trucks [
 
-        send-message myself self "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
+        send-message myself self "Request" "¿Cuál es mi distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
         ask myself [set requests1 lput myself requests1]
       ]
@@ -945,7 +970,7 @@ to coordinated-one-min-distance
       ask fire-trucks[
         calculate-closest-fire-distance
 
-        if(floor(min_dist) = floor(closest-fire-distance))[
+        if(abs(min_dist - closest-fire-distance) <= 1.5)[  ;;Saber si el valor coincide con un rango de error de 1.0 (porque en un tick de reloj se pude mover minimamente)
           send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
           process-messages
           set apago_fuego true
@@ -970,7 +995,6 @@ to coordinated-one-min-distance
   if not any? fires [
     print "No hay fuegos por apagar."
   ]
-
 
 end
 
@@ -1208,8 +1232,8 @@ end
 GRAPHICS-WINDOW
 449
 10
-1357
-919
+1480
+1042
 -1
 -1
 2.903225806451613
