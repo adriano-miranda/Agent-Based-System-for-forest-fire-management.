@@ -69,14 +69,15 @@ coordinadores-own
 
 patches-own
 [
-  fuel
-  flam
+  fuel ;Valor del fuel
+  flam ;Valor de inflamabilidad
   cluster ; Cluster al que pertenece
-  windspe
-  winddir
+  windspe ;Velocidad del viento
+  winddir ;dirección del viento
   globspe
   globdir
 
+  ;;Para controlar la posición y movimiento
   fireX
   fireY
 
@@ -86,18 +87,17 @@ patches-own
   globX
   globY
 
-  fueltype
-  landusetype
-  slope
-  fuera_mapa
+  fueltype  ;tipo de modelo combustible
+  landusetype  ;tipo de uso de suelo (para las casillas que no tienen vegetación
+  slope  ;pendiente del patch
+  fuera_mapa  ;Para ningún agente sobresalga los límites del mapa
 
-  water?
-  nonfuel?
+  water?  ;;Flag para saber en qué patches hay agua
+
 
   wpatch?
-  ignition?
-  burned?
-  perim?
+  ignition? ;Patches dónde comienza el fuego
+  burned?  ;;Patches que han sido quemados
   arrival-time
 
   pburned
@@ -139,8 +139,8 @@ end
 
 to load-GIS-0
   ;; Cargar los archivos de datos
-  let fueltypeData gis:load-dataset "DATA_GAL/modelo_combustible_miguel.asc"
-  let landuseData gis:load-dataset "DATA_GAL/UsoSuelo.asc"
+  let fueltypeData gis:load-dataset "DATA_GAL/modelo_comb_cellsize.asc"
+  let landuseData gis:load-dataset "DATA_GAL/uso_suelo_cellsize.asc"
   let slopeData gis:load-dataset "DATA_GAL/pendiente.asc"
 
   ;; Obtener las dimensiones del mapa y redimensionar el mundo NetLogo
@@ -164,10 +164,8 @@ to load-GIS-0
   ask patches [
     set ignition? false
     set burned? false
-    set perim? false
     set water? false
     set fuera_mapa false
-    set nonfuel? false
   ]
   ;print("fueltype del patch 83 80 :")
   ;show [fueltype] of patch 83 80
@@ -530,8 +528,10 @@ to landscape
       [
         set fuel 0.0
         set flam 0.0
+        set water? true
         set cluster "agua"
         if Visualisation = "Fueltype" [set pcolor [34 113 179]] ;;Azul
+
       ]
 
       ;Cultivos; Cultivos con arbolado disperso; Prado; Prado con setos; Mosaico Agrícola con artificial;
@@ -1065,6 +1065,12 @@ to spread
 
     set windmod  (a + flam / 30) / ((1 + (b) * e ^ (- (k) * windspe)) ^ (1 / (flam + (2.6 + RoS)) ))
     set RoS ((f1 * RoS  + (1 - f1) * (((flam) ^ 1.3) + flam + w3 * windspe * abs(collinear)) + s1 * slope / 100 * coslope)) * (m1 * windmod)
+    print("SLOPE")
+    print(slope)
+    print("FLAM")
+    print(flam)
+    print("fuel")
+    print(fuel)
 
     let f2-2 f2 * (1.2 - windmod / 1.3)
     let Cx ((RoS * sin(heading)) * (f2-2) * (1 + density-mod * d1) + windX * (1.05 - f2-2) * windmod + (s1 * slope / 100 * sin(- 180)))
@@ -1187,19 +1193,6 @@ to exportscarauto
   let counter 94
   gis:store-dataset burnscar (word "Raster_out/" folder-name "/V23_" counter "_scen_" scenario "_scale_" rescale "_"  ".asc")
 
-  ; Second is FoM
-  ask patches
-  [(ifelse
-    burned? = true and perim? = true ;hits
-    [set pburned 1000000]
-    burned? = false and perim? = true ; misses
-    [set pburned 1000]
-    burned? = true and perim? = false ; false-alarms
-    [set pburned 1]
-
-    [set pburned 0]
-  )
-  ]
   let burnscarfom gis:patch-dataset pburned
   gis:store-dataset burnscarfom (word "Raster_out/" folder-name "/V23_fom_" counter "_scen_" scenario "_scale_" rescale "_"  ".asc")
 
@@ -1233,10 +1226,10 @@ GRAPHICS-WINDOW
 449
 10
 1480
-1042
+1118
 -1
 -1
-2.903225806451613
+2.8938906752411575
 1
 10
 1
@@ -1247,9 +1240,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-309
+310
 0
-309
+333
 0
 0
 1
