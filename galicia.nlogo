@@ -184,7 +184,7 @@ to load-GIS-0
 end
 
 to setup-message-types
-  set message-types ["Agree" "Inform" "Call_for_prposal" "Query_Ref" "Refuse" "Request"]
+  set message-types ["Agree" "Inform" "Call_for_proposal" "Query_Ref" "Refuse" "Request"]
 end
 
 to send-message [sender receiver message-type content]
@@ -223,7 +223,7 @@ to process-messages
         ; Procesar Refuse
         show (word "Refuse received from " sender " with content: " content)
       ]
-      if message-type = "Call_for_prposal" [
+      if message-type = "Call_for_proposal" [
         ; Procesar Refuse
         show (word "Call for proposal received from " sender " with content: " content)
       ]
@@ -412,10 +412,10 @@ to contar-ticks
 end
 
 to estrategia
-  if Estrategy = "PROP_ONE_MIN_DISTANCE"[proposal-one-min-distance]
-  if Estrategy = "COORD_ONE_MIN_DISTANCE"[coordinated-one-min-distance]
-  if Estrategy = "ONE_MIN_DISTANCE"[one-min-distance]
-  if Estrategy = "ALL_MIN_DISTANCE"[all-min-distance]
+  if Estrategy = "PROP_ONE_MIN_DIST"[proposal-one-min-distance]
+  if Estrategy = "COORD_ONE_MIN_DIST"[coordinated-one-min-distance]
+  if Estrategy = "ONE_MIN_DIST"[one-min-distance]
+  if Estrategy = "ALL_MIN_DIST"[all-min-distance]
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -982,7 +982,6 @@ to coordinated-one-min-distance
           calculate-closest-fire-distance
           send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
           process-messages
-          set apago_fuego true
 
         ]
         if (apago_fuego = false) [
@@ -1014,7 +1013,7 @@ to proposal-one-min-distance
     ask coordinadores [
       ask fire-trucks [
 
-        send-message myself self "Call_for_proposal" "Action: ¿Vas a apagar el fuego?, Condition: Estar disponible";Envío mensaje Request de distancia, debe ser contestado con un inform
+        send-message myself self "Call_for_proposal" "Action: Apagar Fuego, Condition 1: Estar disponible, Condition 2: Mínima distancia al fuego";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
         ask myself [set requests1 lput myself requests1]
       ]
@@ -1027,15 +1026,18 @@ to proposal-one-min-distance
       if  requests1 != [] [
         foreach requests1 [ elemento ->
           let dist 0
-          ask elemento[set dist distance min-one-of fires [distance self]]
+          ask elemento[
+            set dist distance min-one-of fires [distance self]
+             set disponible true
+          ]
           send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
           process-messages
-          set disponible true
+
         ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
 
-          if not member? (list dist who) distancesList ;si no está en lista lo añado
+          if not member? (list dist elemento) distancesList ;si no está en lista lo añado
           [
-            set distancesList lput (list dist who) distancesList ; set distancesList lput (dist,who) distancesList
+            set distancesList lput (list dist elemento) distancesList ; set distancesList lput (dist,who) distancesList
           ]  ; Añadir la distancia a la lista de distancias recibidas
         ]
       set requests1 []
@@ -1043,27 +1045,29 @@ to proposal-one-min-distance
     ]
   ]
 
-  ;El coordinador envía un Refuse a los fire-trucks que no deben apagar el fuego y un Agree a los que deben apagarlo
   if (finished_messages = false) [
     ask coordinadores [
-      ; Comparar la distancia más corta
-      let min_dist 999999
-      foreach distancesList [element ->
-        if element < min_dist    [
-          set min_dist element
+      ;;SELECCIONO EL FIRETRUCK CON MEOR DISTANCIA MINIMA A FUEGOS
+      let min_dist min item 0 distanceslist
+      foreach distanceslist [element ->
+        let primer_elemento item 0 element
+        if (primer_elemento = min_dist)[
+          let elegido item 1 element
+          ask fire-trucks [
+            if self = elegido[set apago_fuego true]
+          ]
         ]
       ]
 
       ask fire-trucks[
-        if (disponible = true)[
-          calculate-closest-fire-distance
+        if (disponible = true and apago_fuego = true)[
 
-          if(abs(min_dist - closest-fire-distance) <= 1.5)[  ;;Saber si el valor coincide con un rango de error de 1.0 (porque en un tick de reloj se pude mover minimamente)
-            send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
-            process-messages
-            set apago_fuego true
-          ]
-          if (floor(min_dist) != floor(closest-fire-distance)) [
+          calculate-closest-fire-distance
+          send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+          process-messages
+
+        ]
+          if (disponible = false or apago_fuego = false) [
 
             send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
             process-messages
@@ -1072,10 +1076,10 @@ to proposal-one-min-distance
       ]
       set finished_messages true
     ]
-  ]
+
   ;Los fire-trucks que hayan recibido un agree apagarán el fuego
   ask fire-trucks[
-    if (apago_fuego = true) [
+    if (disponible = true and apago_fuego = true) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego ;;
       check-and-extinguish-fires
@@ -1636,8 +1640,8 @@ CHOOSER
 235
 Estrategy
 Estrategy
-"ALL_MIN_DISTANCE" "ONE_MIN_DISTANCE" "COORD_ONE_MIN_DISTANCE"
-2
+"ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST"
+3
 
 SLIDER
 207
