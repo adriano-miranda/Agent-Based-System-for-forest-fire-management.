@@ -806,6 +806,7 @@ to all-min-distance
         face nearest-fire
         apagar_fuego
         check-and-extinguish-fires
+        set apago_fuego true
       ]if not any? fires [
       print "No hay fuegos por apagar."
       ]
@@ -832,9 +833,10 @@ to one-min-distance
       ask other fire-trucks [
         if  requests1 != [] [
           foreach requests1 [ elemento ->
-            let dist distance min-one-of fires [distance myself]
+            let dist distance min-one-of fires [distance myself]  ;Esta es la distancia en casillas
+            set dist dist * 0.666  ;Distancia en Km
             ask elemento[
-              send-message myself elemento "Inform" (word "Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
+              send-message myself elemento "Inform" (word "Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
               process-messages
            ]
             ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
@@ -933,8 +935,9 @@ to coordinated-one-min-distance
       if  requests1 != [] [
         foreach requests1 [ elemento ->
           let dist 0
-          ask elemento[set dist distance min-one-of fires [distance self]]
-          send-message elemento myself "Inform" (word "Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
+          ask elemento[set dist distance min-one-of fires [distance self]] ;Distancia en casillas
+          set dist dist * 0.666  ;Distancia en Km
+          send-message elemento myself "Inform" (word "Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
           process-messages
 
           ;;Se añade la distancia al fuego más cercano a la lista de distancias del coordinador.
@@ -996,7 +999,7 @@ to coordinated-one-min-distance
   ask fire-trucks[
     if (apago_fuego = true) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
-      apagar_fuego ;;
+      apagar_fuego
       check-and-extinguish-fires
     ]
   ]
@@ -1019,7 +1022,7 @@ to proposal-one-min-distance
       ]
     ]
   ]
-  ;Todo los agentes envian un inform con su disponibilidad y distancia mínima al coordinador
+  ;Todo los agentes envian un inform con su disponibilidad y distancia mínima al coordinady su disponibilidad
   ask fire-trucks [
 
     ask coordinadores [
@@ -1027,10 +1030,11 @@ to proposal-one-min-distance
         foreach requests1 [ elemento ->
           let dist 0
           ask elemento[
-            set dist distance min-one-of fires [distance self]
-             set disponible true
+            set dist distance min--of fires [distance self] ;Esta es la distancia en casillas
+            set dist dist * 0.666  ;Distancia en Km
+            if apago_fuego = false [set disponible true]
           ]
-          send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " dist)  ;Envío mensaje Inform
+          send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
           process-messages
 
         ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
@@ -1048,39 +1052,50 @@ to proposal-one-min-distance
   if (finished_messages = false) [
     ask coordinadores [
       ;;SELECCIONO EL FIRETRUCK CON MEOR DISTANCIA MINIMA A FUEGOS
-      let min_dist min item 0 distanceslist
-      foreach distanceslist [element ->
-        let primer_elemento item 0 element
-        if (primer_elemento = min_dist)[
-          let elegido item 1 element
-          ask fire-trucks [
-            if self = elegido[set apago_fuego true]
-          ]
+      let min_dist_tuple first distanceslist
+
+
+      foreach distanceslist [
+        [element] ->
+        if first element < first min_dist_tuple [
+          set min_dist_tuple element
+        ]
+      ]
+      let segundo_elemento item 1 min_dist_tuple
+
+      ask fire-trucks [
+        if self = segundo_elemento[
+          set apago_fuego true
         ]
       ]
 
-      ask fire-trucks[
-        if (disponible = true and apago_fuego = true)[
 
-          calculate-closest-fire-distance
-          send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+
+    ask fire-trucks[
+
+      if(disponible = true and apago_fuego = true)[
+        calculate-closest-fire-distance
+        send-message myself self "Agree" (word "Action: Apagar fuego. Condition 1: Soy el fire-truck más próximo a fuego. Condition 2: Estoy disponible ")  ;Envío mensaje Agree
+        process-messages
+      ]
+      if disponible = false [
+          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No estoy disponible ")  ;Envío mensaje Refuse
           process-messages
-
-        ]
-          if (disponible = false or apago_fuego = false) [
-
-            send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
-            process-messages
-          ]
-        ]
       ]
-      set finished_messages true
+      if disponible = true and apago_fuego = false [
+          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+          process-messages
+      ]
     ]
 
-  ;Los fire-trucks que hayan recibido un agree apagarán el fuego
+    ]
+      set finished_messages true
+  ]
+
+  ;Los fire-trucks que hayan recibido un agree apagarán el fuego y los que ya estaban apagando algún fuego también
   ask fire-trucks[
-    if (disponible = true and apago_fuego = true) [
-      face min-one-of fires [distance myself] ;; Face al fuego más cercano
+    if (disponible = true and apago_fuego = true) or (disponible = false) [
+      face min--of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego ;;
       check-and-extinguish-fires
     ]
@@ -1099,7 +1114,7 @@ to check-and-extinguish-fires
     set fire-truck-collide true
     set apagando_fuego true
 
-    let target-fire one-of fires-in-radius
+    let target-fire -of fires-in-radius
     ask target-fire [
       set color green
       die
@@ -1168,7 +1183,7 @@ to spread
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
- ;;;;;;;;;;;; This recombines components into magnitude and direction for the fire agents
+ ;;;;;;;;;;;; This recombines compnts into magnitude and direction for the fire agents
     let Cmag ((Cx ^ 2) + (Cy ^ 2)) ^ 0.5
     let Cang atan Cx Cy
     set heading Cang
@@ -1641,7 +1656,7 @@ CHOOSER
 Estrategy
 Estrategy
 "ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST"
-3
+1
 
 SLIDER
 207
