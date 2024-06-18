@@ -816,7 +816,7 @@ end
 ;; Estrategia para enviar mensajes y el fire-truck más cercano al fuego que se desplace para extinguirlo.
 to one-min-distance
 
-  ;Todos los agentes envían Reques1 a todos los demás agentes y contestan con un Inform
+  ;Todos los agentes envían Requet1 a todos los demás agentes y contestan con un Inform
   if finished_messages = false [
     ask fire-trucks [
       ask other fire-trucks [
@@ -834,9 +834,9 @@ to one-min-distance
         if  requests1 != [] [
           foreach requests1 [ elemento ->
             let dist distance min-one-of fires [distance myself]  ;Esta es la distancia en casillas
-            set dist dist * 0.666  ;Distancia en Km
+            let distKm dist * 0.666  ;Distancia en Km
             ask elemento[
-              send-message myself elemento "Inform" (word "Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
+              send-message myself elemento "Inform" (word "Distancia al fuego más cercano: " distKm " Km")  ;Envío mensaje Inform
               process-messages
            ]
             ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
@@ -873,7 +873,7 @@ to one-min-distance
 
     if  requests2 != [] [
       foreach requests2 [ elemento ->
-      ; Comparar la distancia más corta
+      ;Compruebo si mi distancia minima la fuego es menor que la del resto
         calculate-closest-fire-distance
         let my_dist closest-fire-distance
         let soy_menor true
@@ -936,8 +936,8 @@ to coordinated-one-min-distance
         foreach requests1 [ elemento ->
           let dist 0
           ask elemento[set dist distance min-one-of fires [distance self]] ;Distancia en casillas
-          set dist dist * 0.666  ;Distancia en Km
-          send-message elemento myself "Inform" (word "Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
+          let distKm dist * 0.666  ;Distancia en Km
+          send-message elemento myself "Inform" (word "Distancia al fuego más cercano: " distKm " Km")  ;Envío mensaje Inform
           process-messages
 
           ;;Se añade la distancia al fuego más cercano a la lista de distancias del coordinador.
@@ -1030,11 +1030,11 @@ to proposal-one-min-distance
         foreach requests1 [ elemento ->
           let dist 0
           ask elemento[
-            set dist distance min--of fires [distance self] ;Esta es la distancia en casillas
-            set dist dist * 0.666  ;Distancia en Km
+            set dist distance min-one-of fires [distance self] ;Esta es la distancia en casillas
             if apago_fuego = false [set disponible true]
           ]
-          send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " dist " Km")  ;Envío mensaje Inform
+          let distKm dist * 0.666  ;Distancia en Km
+          send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " distKm " Km")  ;Envío mensaje Inform
           process-messages
 
         ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
@@ -1095,7 +1095,7 @@ to proposal-one-min-distance
   ;Los fire-trucks que hayan recibido un agree apagarán el fuego y los que ya estaban apagando algún fuego también
   ask fire-trucks[
     if (disponible = true and apago_fuego = true) or (disponible = false) [
-      face min--of fires [distance myself] ;; Face al fuego más cercano
+      face min-one-of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego ;;
       check-and-extinguish-fires
     ]
@@ -1114,7 +1114,7 @@ to check-and-extinguish-fires
     set fire-truck-collide true
     set apagando_fuego true
 
-    let target-fire -of fires-in-radius
+    let target-fire one-of fires-in-radius
     ask target-fire [
       set color green
       die
@@ -1183,7 +1183,7 @@ to spread
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
- ;;;;;;;;;;;; This recombines compnts into magnitude and direction for the fire agents
+ ;;;;;;;;;;;; This recombines components into magnitude and direction for the fire agents
     let Cmag ((Cx ^ 2) + (Cy ^ 2)) ^ 0.5
     let Cang atan Cx Cy
     set heading Cang
@@ -1656,7 +1656,7 @@ CHOOSER
 Estrategy
 Estrategy
 "ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST"
-1
+3
 
 SLIDER
 207
