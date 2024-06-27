@@ -18,6 +18,7 @@ globals
   max-density
 
   firetruck-created ;;Flag para saber si se ha creado un firetruck para click-Fire-truck
+  num-fire-trucks ;Numero de fire-trucks
 
   t ;;Para la función de vectorizar
   t30
@@ -26,6 +27,7 @@ globals
   message-types
   finished_messages ;Flag para saber cuando termina la comunicación entre agentes
 
+  focos_incendio ;Lista de los focos de incendio (cell dónde se hace el ignite)
 ]
 
 breed [fires fire]
@@ -58,6 +60,9 @@ fire-trucks-own
   distancesList ;Lista de distancias mínimasa fuegos
   requests1 ;Lista de requests recibidos tipo 1
   requests2 ;Lista de requests recibidos tipo 2
+  ;Coordenadas hacia donde debe dirigirse
+  target-x
+  target-y
 ]
 
 ;Coordinador para comunicación
@@ -72,9 +77,9 @@ patches-own
 [
   fuel ;Valor del fuel
   flam ;Valor de inflamabilidad
-  cluster ; Cluster al que pertenece
+  cluster ;Cluster al que pertenece
   windspe ;Velocidad del viento
-  winddir ;dirección del viento
+  winddir ;Dirección del viento
   globspe
   globdir
 
@@ -95,7 +100,6 @@ patches-own
 
   water?  ;;Flag para saber en qué patches hay agua
 
-
   wpatch?
   ignition? ;Patches dónde comienza el fuego
   burned?  ;;Patches que han sido quemados
@@ -112,10 +116,10 @@ to setup
   setup-message-types
   set finished_messages false
   set messages []
-
+  set num-fire-trucks 0
+  set focos_incendio []
   create-coordinadores 1[
     set distancesList []
-
     set requests1 []
     set requests2 []
   ]
@@ -309,7 +313,12 @@ end
 to click-ignite
 
   if mouse-down?
-  [ask patch mouse-xcor mouse-ycor
+  [
+    ask coordinadores[
+      set focos_incendio lput list mouse-xcor mouse-ycor focos_incendio
+      ;print(focos_incendio)
+    ]
+    ask patch mouse-xcor mouse-ycor
     [
       let directions [0 90 180 270]
       let i 0
@@ -317,7 +326,7 @@ to click-ignite
       [sprout-fires 1
         [
           set heading item i directions
-          set size 0.5
+          set size 2
           set cell list xcor ycor
           set color red
           fd 0.00001
@@ -325,6 +334,7 @@ to click-ignite
         ]
         set i i + 1
       ]
+
     ]
     stop]
 end
@@ -346,11 +356,14 @@ to click-firetruck
       set apagando_fuego false
       set truck-size 3
       set contador-ticks 0
+      set num-fire-trucks num-fire-trucks + 1
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Firetrucks-speed
       setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
       set  distancesList[] ;Lista de distancias mínimasa fuegos
+      set target-x 0
+      set target-y 0
     ]
     set firetruck-created true
   ]
@@ -394,8 +407,8 @@ to go
 
   ]
 
-  ;cada pixel = 666.513583548386805 metros x 714.5249993548368366 metros  = 476240, redondeando 47,6 ha. (esta info. está en el .asc)
-  set area (count patches with [burned?] * 47.6 ) ;pixeles quemados * hectareas de cada pixel
+  ;cada pixel = 666 metros x 666 metros  = 443.3556 m2 (47,6 ha) (esta info. está en el .asc)
+  set area (count patches with [burned?] * 44.3556 ) ;pixeles quemados * hectareas de cada pixel
   ;;if vectorshow? [vectorshow] ; diagnostic
 
   if stoptime > 0
@@ -416,6 +429,7 @@ to estrategia
   if Estrategy = "COORD_ONE_MIN_DIST"[coordinated-one-min-distance]
   if Estrategy = "ONE_MIN_DIST"[one-min-distance]
   if Estrategy = "ALL_MIN_DIST"[all-min-distance]
+  if Estrategy = "DISTRIBUTED_ATTACK"[distributed-attack]
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -527,7 +541,7 @@ to landscape
         set fuel 0.0
         set flam 0.0
         set cluster "sin vegetacion"
-        if Visualisation = "Fueltype" [set pcolor [155 155 155]] ;;Gris
+        if Visualisation = "Fueltype" [set pcolor [155 155 155]]  ;;Gris
       ]
 
       ;Cursos de agua; Suministros de agua; Lagunas; Pantano o embalse; Laguna de alta montaña
@@ -537,8 +551,7 @@ to landscape
         set flam 0.0
         set water? true
         set cluster "agua"
-        if Visualisation = "Fueltype" [set pcolor [34 113 179]] ;;Azul
-
+        if Visualisation = "Fueltype" [set pcolor [34 113 179]]  ;;Azul
       ]
 
       ;Cultivos; Cultivos con arbolado disperso; Prado; Prado con setos; Mosaico Agrícola con artificial;
@@ -1016,7 +1029,7 @@ to proposal-one-min-distance
     ask coordinadores [
       ask fire-trucks [
 
-        send-message myself self "Call_for_proposal" "Action: Apagar Fuego, Condition 1: Estar disponible, Condition 2: Mínima distancia al fuego";Envío mensaje Request de distancia, debe ser contestado con un inform
+        send-message myself self "Call_for_proposal" "Action: Apagar Fuego. Precondition 1: Estar disponible, Precondition 2: Distancia mínima al fuego";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
         ask myself [set requests1 lput myself requests1]
       ]
@@ -1037,7 +1050,7 @@ to proposal-one-min-distance
           send-message elemento myself "Inform" (word "Estoy disponible, Distancia al fuego más cercano: " distKm " Km")  ;Envío mensaje Inform
           process-messages
 
-        ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
+          ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
 
           if not member? (list dist elemento) distancesList ;si no está en lista lo añado
           [
@@ -1069,30 +1082,18 @@ to proposal-one-min-distance
         ]
       ]
 
-
-
-    ask fire-trucks[
-
-      if(disponible = true and apago_fuego = true)[
-        calculate-closest-fire-distance
-        send-message myself self "Agree" (word "Action: Apagar fuego. Condition 1: Soy el fire-truck más próximo a fuego. Condition 2: Estoy disponible ")  ;Envío mensaje Agree
-        process-messages
-      ]
-      if disponible = false [
-          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No estoy disponible ")  ;Envío mensaje Refuse
+      ask fire-trucks[
+        if(disponible = true and apago_fuego = true)[
+          send-message myself self "Request" (word "Action: Apagar fuego. ")  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
           process-messages
+          ask myself [set requests2 lput self requests2]
+        ]
       ]
-      if disponible = true and apago_fuego = false [
-          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
-          process-messages
-      ]
-    ]
-
     ]
       set finished_messages true
   ]
 
-  ;Los fire-trucks que hayan recibido un agree apagarán el fuego y los que ya estaban apagando algún fuego también
+ ;Los fire-trucks que hayan recibido un agree apagarán el fuego y los que ya estaban apagando algún fuego también
   ask fire-trucks[
     if (disponible = true and apago_fuego = true) or (disponible = false) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
@@ -1104,6 +1105,51 @@ to proposal-one-min-distance
     print "No hay fuegos por apagar."
   ]
 
+end
+
+to distributed-attack
+  let foco list 0 0
+  let index 0
+  let asignacion_fuegos [] ;Lista asigna a cada fire-truck su foco de incendio [Fire-truck X, [foco_posx, foco_posy]]
+  if finished_messages = false [
+    ask coordinadores[
+      ask fire-trucks[
+        set foco item index focos_incendio
+        set asignacion_fuegos lput (list self foco) asignacion_fuegos ;Lista con fire-truck y foco asignado
+        send-message myself self "Request" (word "Action: Apagar fuego: "index)  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
+        process-messages
+        set index index + 1
+        if index = length focos_incendio [set index 0]
+      ]
+    ]
+    set finished_messages true
+  ]
+
+  ;Envío a cada fire-truck al foco de incendio que le corresponde
+  ask fire-trucks[
+    foreach asignacion_fuegos[ [elemento]->
+      if item 0 elemento = self[
+        let foco_xy (item 1 elemento)
+        set target-x item 0 foco_xy
+        set target-y item 1 foco_xy
+      ]
+    ]
+  ]
+  ask fire-trucks[
+    let x target-x
+    let y target-y
+    let target-fire min-one-of fires [
+      distancexy x y
+    ]
+    if any? fires [
+      face target-fire
+      apagar_fuego
+      check-and-extinguish-fires
+    ]
+  ]
+  if not any? fires [
+    print "No hay fuegos por apagar."
+  ]
 end
 
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
@@ -1204,10 +1250,6 @@ to spread
     [stamp]
     []
     ;; stamp? [stamp]
- ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
- ;; Para que se eliminen los fuegos que salen de los extremos de la pantalla
-
 
  ;;;;;;;;;;;; Pre-heating
  ;;Si no hay patch-ahead quiere decir que se encuentra en un extremo del mapa y por lo tanto el siguiete patch no existe, entonces muere
@@ -1322,7 +1364,7 @@ to-report performance
   report t30
 end
 
-;Copyright 2021 Jeffrey Katan
+;Copyright 2024 Adriano Miranda
 @#$#@#$#@
 GRAPHICS-WINDOW
 449
@@ -1470,20 +1512,9 @@ scenario
 0
 
 MONITOR
-283
+87
 464
-447
-509
-avg RoS start to finish (m/min)
-avgRoS * 200
-4
-1
-11
-
-MONITOR
-160
-464
-283
+210
 509
 Area Quemada (ha)
 area
@@ -1501,17 +1532,6 @@ rescale
 1
 0
 Number
-
-MONITOR
-87
-464
-161
-509
-RoS in m/min
-mean [RoS] of fires * 200
-4
-1
-11
 
 CHOOSER
 210
@@ -1541,10 +1561,10 @@ NIL
 1
 
 INPUTBOX
-204
-342
-397
-402
+246
+543
+439
+603
 folder-name
 Tijuana
 1
@@ -1552,10 +1572,10 @@ Tijuana
 String
 
 BUTTON
-204
-402
-397
-435
+246
+603
+439
+636
 Export interface image
 export-interface (word \"Raster_out/\" folder-name \"/Interface.png\")
 NIL
@@ -1569,10 +1589,10 @@ NIL
 1
 
 TEXTBOX
-207
-317
-394
-361
+249
+518
+436
+562
 Name of folder where Monte Carlo simulation results will be stored.
 9
 0.0
@@ -1655,8 +1675,8 @@ CHOOSER
 235
 Estrategy
 Estrategy
-"ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST"
-3
+"ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK"
+4
 
 SLIDER
 207
