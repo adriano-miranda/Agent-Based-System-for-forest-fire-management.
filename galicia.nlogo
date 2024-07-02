@@ -188,7 +188,7 @@ to load-GIS-0
 end
 
 to setup-message-types
-  set message-types ["Agree" "Inform" "Call_for_proposal" "Query_Ref" "Refuse" "Request"]
+  set message-types ["Agree" "Inform" "Call_for_proposal" "Refuse" "Request"]
 end
 
 to send-message [sender receiver message-type content]
@@ -279,6 +279,49 @@ to geoCoords-ascCoords
     stop
 end
 
+to geoCoords-ascCoords-firetrucks
+  ;; Coordenadas de ejemplo del shapefile
+  ;let shapefile-x 50000
+  ;let shapefile-y 4700000
+  let shapefile-x UTM-X-Firetruck
+  let shapefile-y UTM-Y-Firetruck
+
+  ;Convierto string a cadena
+  let numeroX read-from-string shapefile-x  ;; Convertir cadena a número
+  let numeroY read-from-string shapefile-y  ;; Convertir cadena a número
+
+  ;; Convertir a coordenadas de la cuadrícula del archivo .asc
+  let asc-coords shapefile-to-asc-coords numeroX numeroY
+
+  ;; Extraer columna y fila
+  let col item 0 asc-coords
+  let row item 1 asc-coords
+
+  ;; Mostrar las coordenadas convertidas
+  ;show (word "Columna: " col " Fila: " row)
+  ;Prendo fuego en las coordenadas especificadas por el usuario
+  create-fire-trucks 1[
+
+      set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set fire-truck-collide false
+      set disponible false
+      set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
+      set requests1 [] ;Para saber si ha recibido un Request
+      set requests2 [] ;Para saber si ha recibido un Request
+      set apagando_fuego false
+      set truck-size 3
+      set contador-ticks 0
+      set num-fire-trucks num-fire-trucks + 1
+      set size truck-size ; Tamaño de los camiones de bomberos
+      set color yellow ; Asigna un color amarillo al camión de bomberos
+      fd Firetrucks-speed
+      setxy col row ; Establece la posición del camión de bomberos donde se hizo click
+      set  distancesList[] ;Lista de distancias mínimasa fuegos
+      set target-x 0
+      set target-y 0
+    ]
+end
+
 to-report shapefile-to-asc-coords [x y]
   ;; Extraer parámetros del archivo .asc
   let xllcorner -14131.897400000133
@@ -360,7 +403,7 @@ to click-firetruck
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Firetrucks-speed
-      setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo clic
+      setxy mouse-xcor mouse-ycor ; Establece la posición del camión de bomberos donde se hizo click
       set  distancesList[] ;Lista de distancias mínimasa fuegos
       set target-x 0
       set target-y 0
@@ -1162,7 +1205,7 @@ to check-and-extinguish-fires
 
     let target-fire one-of fires-in-radius
     ask target-fire [
-      set color green
+      set pcolor scale-color blue fuel 0 1
       die
     ]
   ] [
@@ -1265,6 +1308,7 @@ to spread
         ]
       ]
     ] if fuera_mapa = true [
+      set pcolor scale-color blue fuel 0 1
       die
     ]
      check-cell
@@ -1278,14 +1322,20 @@ to check-cell
     if fuel <= 0.2 * (1.1 - RoS * rescale)
     [
       if random-float (1 - RoS / 10) < RoS
-      [die]
+      [
+        set pcolor scale-color blue fuel 0 1
+        die
+      ]
     ]
     if distancexy item 0 cell item 1 cell > (4 * RoS) ^ 0.5 and count fires-here < 3 ; if this agent has travelled more than (4 * its RoS(current))^0.5, and there are fewer than 3 other fires
     [
       propagate
       die
     ]
-    if RoS <= 0 [die]
+    if RoS <= 0 [
+      set pcolor scale-color blue fuel 0 1
+      die
+    ]
   ]
 end
 
@@ -1419,17 +1469,17 @@ wind-speed
 wind-speed
 0.01
 50
-15.01
+12.01
 1
 1
 NIL
 HORIZONTAL
 
 INPUTBOX
-5
-317
-60
-395
+212
+56
+267
+134
 stoptime
 1440.0
 1
@@ -1469,10 +1519,10 @@ NIL
 1
 
 MONITOR
-7
-266
-79
-311
+9
+135
+81
+180
 NIL
 count fires
 17
@@ -1480,10 +1530,10 @@ count fires
 11
 
 MONITOR
-79
-266
-179
-311
+81
+135
+181
+180
 NIL
 count active-cells
 17
@@ -1491,10 +1541,10 @@ count active-cells
 11
 
 MONITOR
-3
-464
-87
-509
+181
+135
+265
+180
 RoS in Cell/Tick
 mean [RoS] of fires
 4
@@ -1512,10 +1562,10 @@ scenario
 0
 
 MONITOR
-87
-464
-210
-509
+265
+135
+388
+180
 Area Quemada (ha)
 area
 0
@@ -1523,10 +1573,10 @@ area
 11
 
 INPUTBOX
-60
-317
-111
-395
+267
+56
+318
+134
 rescale
 1.0
 1
@@ -1534,10 +1584,10 @@ rescale
 Number
 
 CHOOSER
-210
-64
-336
-109
+271
+11
+397
+56
 Visualisation
 Visualisation
 "Fueltype" "Slope" "Flammability" "Fuel"
@@ -1561,10 +1611,10 @@ NIL
 1
 
 INPUTBOX
-246
-543
-439
-603
+9
+645
+202
+705
 folder-name
 Tijuana
 1
@@ -1572,10 +1622,10 @@ Tijuana
 String
 
 BUTTON
-246
-603
-439
-636
+9
+705
+202
+738
 Export interface image
 export-interface (word \"Raster_out/\" folder-name \"/Interface.png\")
 NIL
@@ -1586,16 +1636,6 @@ NIL
 NIL
 NIL
 NIL
-1
-
-TEXTBOX
-249
-518
-436
-562
-Name of folder where Monte Carlo simulation results will be stored.
-9
-0.0
 1
 
 BUTTON
@@ -1627,35 +1667,35 @@ performance
 11
 
 TEXTBOX
-209
-135
-359
-153
+9
+268
+159
+286
 FIRETRUCKS
 10
 0.0
 1
 
 SLIDER
-206
-236
-378
-269
+6
+359
+179
+392
 Firetrucks-speed
 Firetrucks-speed
 0
 1
-0.8
+0.6
 0.1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-207
-151
-310
-184
+6
+282
+109
+315
 Click-firetruck
 click-firetruck
 T
@@ -1669,20 +1709,20 @@ NIL
 1
 
 CHOOSER
-206
-190
-417
-235
+6
+315
+179
+360
 Estrategy
 Estrategy
 "ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK"
 4
 
 SLIDER
-207
-271
-379
-304
+6
+392
+179
+425
 Delay
 Delay
 0
@@ -1740,6 +1780,55 @@ NIL
 NIL
 NIL
 NIL
+1
+
+INPUTBOX
+241
+544
+342
+604
+UTM-X-Firetruck
+97000
+1
+0
+String
+
+INPUTBOX
+342
+544
+441
+604
+UTM-Y-Firetruck
+4690545
+1
+0
+String
+
+BUTTON
+241
+603
+441
+636
+Click-firetruck
+geoCoords-ascCoords-firetrucks
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+244
+528
+394
+546
+Click firetruck using coordinates
+10
+0.0
 1
 
 @#$#@#$#@
