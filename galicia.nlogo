@@ -55,7 +55,7 @@ fire-trucks-own
   truck-size  ;;Tamaño del firetruck
   fire-trucks-radius  ;;Radio de colisión con fuego
   fire-truck-collide ;;Flag para saber si un fire-truck entró en colisión con un fuego
-  contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
+  fireCont-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   closest-fire-distance ;; distancia al fuego más cercano
   ;Atributos para estrategias de comunicación:
@@ -74,7 +74,8 @@ hydroplanes-own
   hydroplane-size  ;;Tamaño del firetruck
   hydroplanes-radius  ;;Radio de colisión con fuego
   hydroplane-collide ;;Flag para saber si un fire-truck entró en colisión con un fuego
-  contador-ticks ;;Para contar ticks de reloj (para el delay apagando fuegos)
+  fireCont-ticks ;;Para contar ticks de para el delay apagando fuegos
+  waterCont-ticks ;;Para contar ticks de para el delay apagando fuegos
   apagando_fuego   ;;flag para saber cúando un agente de bomberos está apagando un fuego
   closest-fire-distance ;; distancia al fuego más cercano
   ;Atributos para estrategias de comunicación:
@@ -88,6 +89,8 @@ hydroplanes-own
   target-y
   fuegos_extinguidos ;Para llevar cuenta del número de fuegos extinguidosen cada recarga de agua
   recargando_agua  ;Flag para saber si esta recargando agua
+  goTo_water
+
 ]
 
 ;Coordinador para comunicación
@@ -343,7 +346,7 @@ to geoCoords-ascCoords-firetrucks
       set apagando_fuego false
       set truck-size 3
       set size truck-size ; Tamaño de los camiones de bomberos
-      set contador-ticks 0
+      set fireCont-ticks 0
       set num-fire-trucks num-fire-trucks + 1
       set color yellow ; Asigna un color amarillo al camión de bomberos
       fd Firetrucks-speed
@@ -430,7 +433,7 @@ to click-firetruck
       set requests2 [] ;Para saber si ha recibido un Request
       set apagando_fuego false
       set truck-size 3
-      set contador-ticks 0
+      set fireCont-ticks 0
       set num-fire-trucks num-fire-trucks + 1
       set size truck-size ; Tamaño de los camiones de bomberos
       set color yellow ; Asigna un color amarillo al camión de bomberos
@@ -456,7 +459,7 @@ to click-hydroplane
     ;let new-hydroplane create-hydroplane 1 ; Crea un camión de bomberos
     create-hydroplanes 1[
 
-      set hydroplanes-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set hydroplanes-radius 1 ; Radio de extinción del incendio de camiones de bomberos
       set hydroplane-collide false
       set disponible false
       set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
@@ -465,7 +468,8 @@ to click-hydroplane
       set apagando_fuego false
       set hydroplane-size 3
       set size hydroplane-size ; Tamaño de los camiones de bomberos
-      set contador-ticks 0
+      set fireCont-ticks 0
+      set waterCont-ticks 0
       set num-hydroplanes num-hydroplanes + 1
       set color cyan ; Asigna un color amarillo al camión de bomberos
       fd Hydroplanes-speed
@@ -475,6 +479,8 @@ to click-hydroplane
       set target-y 0
       set fuegos_extinguidos 0
       set recargando_agua false
+      set goTo_water false
+
     ]
     set hydroplane-created true
   ]
@@ -514,7 +520,10 @@ to go
 
   ;;check-and-extinguish-fires
   ask turtles with [breed != fires and breed != coordinadores] [
-    if apagando_fuego = true [contar-ticks]
+    if apagando_fuego = true [contar-ticks-fire]
+    if breed = hydroplanes [
+      if recargando_agua = true [contar-ticks-water]
+    ]
   ]
 
   ;cada pixel = 666 metros x 666 metros  = 443.3556 m2 (47,6 ha) (esta info. está en el .asc)
@@ -529,8 +538,11 @@ to go
   ]
 end
 
-to contar-ticks
-      set contador-ticks contador-ticks + 1
+to contar-ticks-fire
+      set fireCont-ticks fireCont-ticks + 1
+end
+to contar-ticks-water
+      set waterCont-ticks waterCont-ticks + 1
 end
 
 to estrategia
@@ -1271,22 +1283,6 @@ to distributed-attack
   ]
 end
 
-to recargar_agua
-
-  let target-patch min-one-of patches with [water?] [distance myself]
-  face target-patch
-  fd Hydroplanes-speed
-  ;Cuando llego a un Patch con agua me quedo quieto durante Water_Delay ticks.
-  if contador-ticks < Water_Delay[
-    if [water?] of patch-here[
-      fd 0
-      set color blue
-      set contador-ticks contador-ticks + 1
-    ]
-    set contador-ticks 0
-  ]
-end
-
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
   if(breed = fire-trucks)[
@@ -1298,7 +1294,7 @@ to check-and-extinguish-fires
 
       let target-fire one-of fires-in-radius
       ask target-fire [
-        set pcolor scale-color blue fuel 0 1
+        set pcolor scale-color blue fuel 0 1  ;no se pone azul
         die
       ]
     ]
@@ -1307,25 +1303,56 @@ to check-and-extinguish-fires
 
   if(breed = hydroplanes)[
     let fires-in-radius fires in-radius hydroplanes-radius
-    let capacidad_carga 2
 
-    ifelse (fuegos_extinguidos = capacidad_carga)[
-      set recargando_agua true
-      recargar_agua
-      set fuegos_extinguidos 0
-
-    ][
       ifelse any? fires-in-radius [
         set hydroplane-collide true
         set apagando_fuego true
-        set fuegos_extinguidos fuegos_extinguidos + 1
+        let Capacidad_carga 4
         let target-fire one-of fires-in-radius
+        print("target-fire")
+        print(target-fire)
         ask target-fire [
           set pcolor scale-color blue fuel 0 1
+          ask myself [
+            set fuegos_extinguidos fuegos_extinguidos + 1
+            if fuegos_extinguidos > Capacidad_carga [
+              set fuegos_extinguidos 0
+              set goTo_water true
+            ]
+          ] ;;Sumo un fuego extinguidoal eliminarlo
           die
         ]
       ]
       [] ;No hay fuegos en el vecindario
+
+  ]
+end
+
+;Función para que todos los aviones se dirijan a recargar agua después de haber extinguido X fuegos
+to recargar_agua
+
+  let target-patch min-one-of patches with [water?] [distance myself]
+  face target-patch  ;para que se dirija hacia los patches con agua
+  fd Hydroplanes-speed
+  set fireCont-ticks -1 ;Para que no entre en la función de apagar_fuego
+  set fuegos_extinguidos 0
+
+  print("waterCont-ticks")
+  print(waterCont-ticks)
+  ;Recargando agua
+  if [water?] of patch-here [
+    ifelse waterCont-ticks < Water_Delay[ ;Recargo agua durante WaterDelay ticks
+      set recargando_agua true
+      fd 0
+      set color blue
+    ][
+      ;Termino de recargar agua y voy a apagar el fuego
+      set recargando_agua false
+      set waterCont-ticks 0
+      set fireCont-ticks 0
+      set apagando_fuego true
+      set goTo_Water false
+      apagar_fuego
     ]
   ]
 end
@@ -1337,34 +1364,34 @@ to apagar_fuego
       fd 0
       set color orange
     ]
-
     ; Si no se está apagando el fuego
-    if (contador-ticks > Fire_Delay) or (contador-ticks = 0) [
+    if (fireCont-ticks > Fire_Delay) or (fireCont-ticks = 0) [
+
       set apagando_fuego false
       fd Firetrucks-speed  ; Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
-      set contador-ticks 0
+      set fireCont-ticks 0
       set color yellow
     ]
   ]
   ;;Para hidroaviones
   if (breed = hydroplanes)[
-    if (recargando_agua = false)[
-      let Fire_Delay_Hydroplane 1
 
       if (apagando_fuego = true) and  (hydroplane-collide = true) [
         fd 0
         set color orange
       ]
-
-      ; Si no se está apagando el fuego
-      if (contador-ticks > Fire_Delay_Hydroplane) or (contador-ticks = 0) [
-        set apagando_fuego false
-        fd Hydroplanes-speed  ; Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
-        set contador-ticks 0
+      if goTo_water = true [
+        recargar_agua
         set color cyan
+        set apagando_fuego false
+      ]
+        ; Si no se está recargando agua, ir a apagar el fuego
+      if (fireCont-ticks > Fire_Delay_HP) or (fireCont-ticks = 0) [
+          set apagando_fuego false
+          fd Hydroplanes-speed  ;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
+          set color cyan
       ]
     ]
-  ]
 end
 
 ;;Calculos para la propagación del fuego
@@ -1849,14 +1876,14 @@ NIL
 1
 
 CHOOSER
-96
-367
-269
-412
+8
+366
+181
+411
 Estrategy
 Estrategy
 "ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK"
-3
+0
 
 SLIDER
 7
@@ -1997,7 +2024,7 @@ Hydroplanes-speed
 Hydroplanes-speed
 0
 1
-0.3
+0.5
 0.1
 1
 NIL
@@ -2033,6 +2060,21 @@ Water_Delay
 0
 10
 10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+180
+367
+352
+400
+Fire_Delay_HP
+Fire_Delay_HP
+0
+10
+3.0
 1
 1
 NIL
