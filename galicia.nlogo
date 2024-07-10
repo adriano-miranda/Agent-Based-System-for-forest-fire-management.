@@ -952,8 +952,8 @@ to one-min-distance
 
   ;Todos los agentes envían Requet1 a todos los demás agentes y contestan con un Inform
   if finished_messages = false [
-    ask fire-trucks [
-      ask other fire-trucks [
+    ask turtles with [breed != fires and breed != coordinadores] [
+      ask other turtles with [breed != fires and breed != coordinadores] [
 
         send-message myself self "Request" "¿Cuál es tu distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
@@ -963,8 +963,8 @@ to one-min-distance
     ]
   ]
 
-   ask fire-trucks [
-      ask other fire-trucks [
+   ask turtles with [breed != fires and breed != coordinadores] [
+      ask other turtles with [breed != fires and breed != coordinadores] [
         if  requests1 != [] [
           foreach requests1 [ elemento ->
             let dist distance min-one-of fires [distance myself]  ;Esta es la distancia en casillas
@@ -974,7 +974,7 @@ to one-min-distance
               process-messages
            ]
             ;;Cada firetruck añade a su lista las distancias mínimas del resto de firetrucks
-          ask other fire-trucks[
+          ask other turtles with [breed != fires and breed != coordinadores][
 
             if not member? dist distancesList ;si no está en lista lo añado
             [
@@ -989,8 +989,8 @@ to one-min-distance
 
   ;Todos los agentes envían Requet2 a todos los demás agentes y contestan con un Inform
   if finished_messages = false [
-    ask fire-trucks [
-      ask other fire-trucks [
+    ask turtles with [breed != fires and breed != coordinadores] [
+      ask other turtles with [breed != fires and breed != coordinadores] [
 
         send-message myself self "Request" "¿VAS A APAGAR EL FUEGO?";Envío mensaje Request acción ir apagar el fuego. Debe ser contestado con un agree si la distancia es mínima o un Refuse en caso contrario
         process-messages
@@ -1003,7 +1003,7 @@ to one-min-distance
   ]
 
   ; Si recibi un request de tipo 2 envío un Agree o un refuse
-  ask fire-trucks [
+  ask turtles with [breed != fires and breed != coordinadores] [
 
     if  requests2 != [] [
       foreach requests2 [ elemento ->
@@ -1019,14 +1019,14 @@ to one-min-distance
 
         if(soy_menor)[
           ask elemento[
-            send-message myself elemento "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+            send-message myself elemento "Agree" (word "Action: Apagar fuego. Condition: Soy el más próximo a fuego ")  ;Envío mensaje Agree
             process-messages
           ]
           set apago_fuego true
         ]
         if not (soy_menor) [
           ask elemento[
-            send-message myself elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+            send-message myself elemento "Refuse" (word "Action: No Apagar fuego. Reason: No soy el más cercano ")  ;Envío mensaje Refuse
             process-messages
           ]
         ]
@@ -1036,7 +1036,7 @@ to one-min-distance
   ]
 
   ;Los fire-trucks que hayan recibido un agree apagarán el fuego
-  ask fire-trucks[
+  ask turtles with [breed != fires and breed != coordinadores][
     if (apago_fuego = true) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego
@@ -1054,7 +1054,7 @@ to coordinated-one-min-distance
   ;El coordinador envía un mensaje request a los agentes
   if finished_messages = false [
     ask coordinadores [
-      ask fire-trucks [
+      ask turtles with [breed != fires and breed != coordinadores] [
 
         send-message myself self "Request" "¿Cuál es mi distancia al fuego más cercano?";Envío mensaje Request de distancia, debe ser contestado con un inform
         process-messages
@@ -1064,7 +1064,7 @@ to coordinated-one-min-distance
   ]
 
   ;Todo los agentes envian un Inform con su distancia mínima al coordinador
-  ask fire-trucks [
+  ask turtles with [breed != fires and breed != coordinadores] [
     ask coordinadores [
       if  requests1 != [] [
         foreach requests1 [ elemento ->
@@ -1088,7 +1088,7 @@ to coordinated-one-min-distance
 
   ;Todos los agentes envían un Request al coordinador para saber si van a apagar el fuego
   if finished_messages = false [
-    ask fire-trucks [
+    ask turtles with [breed != fires and breed != coordinadores] [
       ask coordinadores [
 
         send-message myself self "Request" "¿APAGO EL FUEGO?";Envío mensaje Request acción. Debe ser contestado con un Agree o un Refuse
@@ -1105,24 +1105,30 @@ to coordinated-one-min-distance
       ;;SELECCIONO EL FIRETRUCK CON MEOR DISTANCIA MINIMA A FUEGOS
       let min_dist min item 0 distanceslist
       foreach distanceslist [element ->
+        if min_dist > item 0 element [
+          set min_dist item 0 element
+        ]
+      ]
+
+      foreach distanceslist [element ->
         let primer_elemento item 0 element
         if (primer_elemento = min_dist)[
           let elegido item 1 element
-          ask fire-trucks [
+          ask turtles with [breed != fires and breed != coordinadores] [
             if self = elegido[set apago_fuego true]
           ]
         ]
       ]
 
-      ask fire-trucks[
+      ask turtles with [breed != fires and breed != coordinadores][
         if (apago_fuego = true)[
           calculate-closest-fire-distance
-          send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy el fire-truck más próximo a fuego ")  ;Envío mensaje Agree
+          send-message myself self "Agree" (word "Action: Apagar fuego. Condition: Soy eres el más próximo a fuego ")  ;Envío mensaje Agree
           process-messages
 
         ]
         if (apago_fuego = false) [
-          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No soy el fire-truck más cercano ")  ;Envío mensaje Refuse
+          send-message myself self "Refuse" (word "Action: No Apagar fuego. Reason: No eres el más cercano ")  ;Envío mensaje Refuse
           process-messages
         ]
       set finished_messages true
@@ -1130,7 +1136,7 @@ to coordinated-one-min-distance
     ]
   ]
   ;Los fire-trucks que hayan recibido un agree apagarán el fuego
-  ask fire-trucks[
+  ask turtles with [breed != fires and breed != coordinadores][
     if (apago_fuego = true) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego
@@ -1148,7 +1154,7 @@ to proposal-one-min-distance
   ;El coordinador envía un mensaje call for proposal a los agentes
   if finished_messages = false [
     ask coordinadores [
-      ask fire-trucks [
+      ask turtles with [breed != fires and breed != coordinadores] [
 
         send-message myself self "Inform" (word "Coordenadas de puntos de incendio : "focos_incendio"")  ;Envío mensaje Inform
         process-messages
@@ -1160,7 +1166,7 @@ to proposal-one-min-distance
     ]
   ]
   ;Todo los agentes envian un inform con su disponibilidad y distancia mínima al coordinady su disponibilidad
-  ask fire-trucks [
+  ask turtles with [breed != fires and breed != coordinadores] [
 
     ask coordinadores [
       if  requests1 != [] [
@@ -1207,13 +1213,13 @@ to proposal-one-min-distance
       ]
       let segundo_elemento item 1 min_dist_tuple
 
-      ask fire-trucks [
+      ask turtles with [breed != fires and breed != coordinadores] [
         if self = segundo_elemento[
           set apago_fuego true
         ]
       ]
 
-      ask fire-trucks[
+      ask turtles with [breed != fires and breed != coordinadores][
         if(disponible = true and apago_fuego = true)[
           send-message myself self "Request" (word "Action: Apagar fuego. ")  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
           process-messages
@@ -1225,7 +1231,7 @@ to proposal-one-min-distance
   ]
 
  ;Los fire-trucks que hayan recibido un agree apagarán el fuego y los que ya estaban apagando algún fuego continuarán apagándolo
-  ask fire-trucks[
+  ask turtles with [breed != fires and breed != coordinadores][
     if (disponible = true and apago_fuego = true) or (disponible = false) [
       face min-one-of fires [distance myself] ;; Face al fuego más cercano
       apagar_fuego
@@ -1244,7 +1250,7 @@ to distributed-attack
   let asignacion_fuegos [] ;Lista asigna a cada fire-truck su foco de incendio [Fire-truck X, [foco_posx, foco_posy]]
   if finished_messages = false [
     ask coordinadores[
-      ask fire-trucks[
+      ask turtles with [breed != fires and breed != coordinadores][
         set foco item index focos_incendio
         set asignacion_fuegos lput (list self foco) asignacion_fuegos ;Lista con fire-truck y foco asignado
         send-message myself self "Request" (word "Action: Apagar fuego: "index)  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
@@ -1257,7 +1263,7 @@ to distributed-attack
   ]
 
   ;Envío a cada fire-truck al foco de incendio que le corresponde
-  ask fire-trucks[
+  ask turtles with [breed != fires and breed != coordinadores][
     foreach asignacion_fuegos[ [elemento]->
       if item 0 elemento = self[
         let foco_xy (item 1 elemento)
@@ -1266,7 +1272,7 @@ to distributed-attack
       ]
     ]
   ]
-  ask fire-trucks[
+  ask turtles with [breed != fires and breed != coordinadores][
     let x target-x
     let y target-y
     let target-fire min-one-of fires [
@@ -1307,19 +1313,19 @@ to check-and-extinguish-fires
       ifelse any? fires-in-radius [
         set hydroplane-collide true
         set apagando_fuego true
-        let Capacidad_carga 4
         let target-fire one-of fires-in-radius
         print("target-fire")
         print(target-fire)
         ask target-fire [
           set pcolor scale-color blue fuel 0 1
+          ;;Sumo un fuego extinguido y si supero la capacidad de agua voy a por más agua
           ask myself [
             set fuegos_extinguidos fuegos_extinguidos + 1
-            if fuegos_extinguidos > Capacidad_carga [
+            if fuegos_extinguidos >= Water_Load [
               set fuegos_extinguidos 0
               set goTo_water true
             ]
-          ] ;;Sumo un fuego extinguidoal eliminarlo
+          ] ;elimino el fuego
           die
         ]
       ]
@@ -1336,23 +1342,26 @@ to recargar_agua
   fd Hydroplanes-speed
   set fireCont-ticks -1 ;Para que no entre en la función de apagar_fuego
   set fuegos_extinguidos 0
-
-  print("waterCont-ticks")
-  print(waterCont-ticks)
+  set apagando_fuego false
+  set color cyan
   ;Recargando agua
-  if [water?] of patch-here [
-    ifelse waterCont-ticks < Water_Delay[ ;Recargo agua durante WaterDelay ticks
+  if [water?] of patch-here or any? patches in-radius 1 with [water?] [
+    print("waterCont-ticks")
+    print(waterCont-ticks)
+
+    ifelse waterCont-ticks < Water_Delay - 1[ ;Recargo agua durante WaterDelay ticks
+
       set recargando_agua true
       fd 0
-      set color blue
+      set color sky
     ][
       ;Termino de recargar agua y voy a apagar el fuego
       set recargando_agua false
       set waterCont-ticks 0
       set fireCont-ticks 0
-      set apagando_fuego true
       set goTo_Water false
       apagar_fuego
+      set color cyan
     ]
   ]
 end
@@ -1361,7 +1370,6 @@ to apagar_fuego
   ;;Para fire-trucks
   if (breed = fire-trucks)[
     if (apagando_fuego = true) and  (fire-truck-collide = true) [
-      fd 0
       set color orange
     ]
     ; Si no se está apagando el fuego
@@ -1380,16 +1388,8 @@ to apagar_fuego
         fd 0
         set color orange
       ]
-      if goTo_water = true [
-        recargar_agua
-        set color cyan
-        set apagando_fuego false
-      ]
-        ; Si no se está recargando agua, ir a apagar el fuego
-      if (fireCont-ticks > Fire_Delay_HP) or (fireCont-ticks = 0) [
-          set apagando_fuego false
-          fd Hydroplanes-speed  ;Velocidad del camión de bomberos en casillas por tick de reloj (desde la interfaz)
-          set color cyan
+      ifelse goTo_water = true [recargar_agua][   ;;Si hay que ir a por agua => recargar agua sino continuar
+          fd Hydroplanes-speed
       ]
     ]
 end
@@ -1643,10 +1643,10 @@ NIL
 HORIZONTAL
 
 INPUTBOX
-212
-56
-267
-134
+196
+62
+250
+122
 stoptime
 1440.0
 1
@@ -1740,10 +1740,10 @@ area
 11
 
 INPUTBOX
-267
-56
-318
-134
+250
+62
+301
+122
 rescale
 1.0
 1
@@ -1751,10 +1751,10 @@ rescale
 Number
 
 CHOOSER
-271
-11
-397
-56
+196
+18
+322
+63
 Visualisation
 Visualisation
 "Fueltype" "Slope" "Flammability" "Fuel"
@@ -1778,10 +1778,10 @@ NIL
 1
 
 INPUTBOX
-4
-546
-197
-606
+7
+558
+200
+618
 folder-name
 Resultados_Galicia
 1
@@ -1789,10 +1789,10 @@ Resultados_Galicia
 String
 
 BUTTON
-4
-606
-197
-639
+7
+618
+200
+651
 Export interface image
 export-interface (word \"Raster_out/\" folder-name \"/Interface.png\")
 NIL
@@ -1823,10 +1823,10 @@ NIL
 1
 
 MONITOR
-212
-12
-272
-57
+301
+77
+361
+122
 ticks/sec
 performance
 4
@@ -1883,7 +1883,7 @@ CHOOSER
 Estrategy
 Estrategy
 "ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK"
-0
+4
 
 SLIDER
 7
@@ -1901,20 +1901,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-7
-428
-157
-446
+11
+438
+161
+456
 Ignition using coordinates
 10
 0.0
 1
 
 INPUTBOX
-3
-445
-115
-505
+7
+457
+112
+517
 UTM-X
 97000
 1
@@ -1922,10 +1922,10 @@ UTM-X
 String
 
 INPUTBOX
-115
-445
-236
-505
+111
+457
+214
+517
 UTM-Y
 4690545
 1
@@ -1933,10 +1933,10 @@ UTM-Y
 String
 
 BUTTON
-3
-504
-236
-537
+7
+514
+214
+547
 Ignition
 geoCoords-ascCoords
 NIL
@@ -1950,10 +1950,10 @@ NIL
 1
 
 INPUTBOX
-236
-445
-337
-505
+214
+457
+322
+517
 UTM-X-Firetruck
 97000
 1
@@ -1961,10 +1961,10 @@ UTM-X-Firetruck
 String
 
 INPUTBOX
-337
-445
-436
-505
+322
+457
+427
+517
 UTM-Y-Firetruck
 4690545
 1
@@ -1972,10 +1972,10 @@ UTM-Y-Firetruck
 String
 
 BUTTON
-236
-504
-436
-537
+214
+514
+427
+547
 Click-firetruck
 geoCoords-ascCoords-firetrucks
 NIL
@@ -1989,19 +1989,19 @@ NIL
 1
 
 TEXTBOX
-239
-429
-389
-447
+232
+441
+382
+459
 Click firetruck using coordinates
 10
 0.0
 1
 
 BUTTON
-180
+217
 270
-293
+330
 303
 NIL
 Click-hydroplane
@@ -2016,24 +2016,24 @@ NIL
 1
 
 SLIDER
-180
+217
 301
-352
+389
 334
 Hydroplanes-speed
 Hydroplanes-speed
 0
-1
-0.5
+2
+1.5
 0.1
 1
 NIL
 HORIZONTAL
 
 TEXTBOX
-182
+219
 254
-332
+369
 272
 HYDROPLANES
 10
@@ -2051,30 +2051,30 @@ WIND
 1
 
 SLIDER
-180
-334
-352
-367
+217
+333
+389
+366
 Water_Delay
 Water_Delay
 0
 10
-10.0
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-180
-367
-352
-400
-Fire_Delay_HP
-Fire_Delay_HP
+217
+366
+389
+399
+Water_Load
+Water_Load
 0
 10
-3.0
+8.0
 1
 1
 NIL
