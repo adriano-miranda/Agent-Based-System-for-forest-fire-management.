@@ -241,9 +241,7 @@ to process-messages
 
     ifelse message-type = "Request" [
       ; Procesar Request
-
       show (word "Request received from " sender " with content: " content)
-
       ; Aquí se podría enviar automáticamente el Inform, pero ya lo hacemos en move-fire-trucks-nearest
     ] [
       if message-type = "Inform" [
@@ -336,15 +334,15 @@ to geoCoords-ascCoords-firetrucks
   ;show (word "Columna: " col " Fila: " row)
   ;Prendo fuego en las coordenadas especificadas por el usuario
   create-fire-trucks 1[
-
-      set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set shape "truck"
+      set fire-trucks-radius 1 ; Radio de extinción del incendio de camiones de bomberos
       set fire-truck-collide false
       set disponible false
       set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
       set requests1 [] ;Para saber si ha recibido un Request
       set requests2 [] ;Para saber si ha recibido un Request
       set apagando_fuego false
-      set truck-size 3
+      set truck-size 4
       set size truck-size ; Tamaño de los camiones de bomberos
       set fireCont-ticks 0
       set num-fire-trucks num-fire-trucks + 1
@@ -354,6 +352,53 @@ to geoCoords-ascCoords-firetrucks
       set  distancesList[] ;Lista de distancias mínimasa fuegos
       set target-x 0
       set target-y 0
+    ]
+end
+
+to geoCoords-ascCoords-hydroplanes
+  ;; Coordenadas de ejemplo del shapefile
+  ;let shapefile-x 50000
+  ;let shapefile-y 4700000
+  let shapefile-x UTM-X-Hydroplane
+  let shapefile-y UTM-Y-Hydroplane
+
+  ;Convierto string a cadena
+  let numeroX read-from-string shapefile-x  ;; Convertir cadena a número
+  let numeroY read-from-string shapefile-y  ;; Convertir cadena a número
+
+  ;; Convertir a coordenadas de la cuadrícula del archivo .asc
+  let asc-coords shapefile-to-asc-coords numeroX numeroY
+
+  ;; Extraer columna y fila
+  let col item 0 asc-coords
+  let row item 1 asc-coords
+
+  ;; Mostrar las coordenadas convertidas
+  ;show (word "Columna: " col " Fila: " row)
+  ;Prendo fuego en las coordenadas especificadas por el usuario
+  create-hydroplanes 1[
+
+      set hydroplanes-radius 1 ; Radio de extinción del incendio de camiones de bomberos
+      set hydroplane-collide false
+      set disponible false
+      set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
+      set requests1 [] ;Para saber si ha recibido un Request
+      set requests2 [] ;Para saber si ha recibido un Request
+      set apagando_fuego false
+      set hydroplane-size 4
+      set size hydroplane-size ; Tamaño de los camiones de bomberos
+      set fireCont-ticks 0
+      set waterCont-ticks 0
+      set num-hydroplanes num-hydroplanes + 1
+      set color cyan ; Asigna un color amarillo al camión de bomberos
+      fd Hydroplanes-speed
+      setxy col row ; Establece la posición del camión de bomberos donde se hizo click
+      set  distancesList[] ;Lista de distancias mínimasa fuegos
+      set target-x 0
+      set target-y 0
+      set fuegos_extinguidos 0
+      set recargando_agua false
+      set goTo_water false
     ]
 end
 
@@ -424,15 +469,15 @@ to click-firetruck
     [
     ;let new-fire-truck create-fire-truck 1 ; Crea un camión de bomberos
     create-fire-trucks 1[
-
-      set fire-trucks-radius 2 ; Radio de extinción del incendio de camiones de bomberos
+      set shape "truck"
+      set fire-trucks-radius 1 ; Radio de extinción del incendio de camiones de bomberos
       set fire-truck-collide false
       set disponible false
       set apago_fuego false ;Flag para saber si soy el fire-truck que debe apagar el fuego
       set requests1 [] ;Para saber si ha recibido un Request
       set requests2 [] ;Para saber si ha recibido un Request
       set apagando_fuego false
-      set truck-size 3
+      set truck-size 4
       set fireCont-ticks 0
       set num-fire-trucks num-fire-trucks + 1
       set size truck-size ; Tamaño de los camiones de bomberos
@@ -458,7 +503,7 @@ to click-hydroplane
     [
     ;let new-hydroplane create-hydroplane 1 ; Crea un camión de bomberos
     create-hydroplanes 1[
-
+      set shape "airplane"
       set hydroplanes-radius 1 ; Radio de extinción del incendio de camiones de bomberos
       set hydroplane-collide false
       set disponible false
@@ -466,7 +511,7 @@ to click-hydroplane
       set requests1 [] ;Para saber si ha recibido un Request
       set requests2 [] ;Para saber si ha recibido un Request
       set apagando_fuego false
-      set hydroplane-size 3
+      set hydroplane-size 4
       set size hydroplane-size ; Tamaño de los camiones de bomberos
       set fireCont-ticks 0
       set waterCont-ticks 0
@@ -551,6 +596,7 @@ to estrategia
   if Estrategy = "ONE_MIN_DIST"[one-min-distance]
   if Estrategy = "ALL_MIN_DIST"[all-min-distance]
   if Estrategy = "DISTRIBUTED_ATTACK"[distributed-attack]
+  if Estrategy = "DISTRIBUTED_MIN_DIST"[distributed-min-dist]
 end
 
 ;;Visualizacion "FBPscheme": Depende del fueltype (nivel de fuel y flam)
@@ -760,8 +806,6 @@ if Visualisation = "Slope" [
     ]
   ]
 ]
-
-
 
    ;; Flammability visualisation: Escala de naranjas (más oscuro implica más inflamable)
     if Visualisation = "Flammability" [
@@ -1091,7 +1135,7 @@ to coordinated-one-min-distance
     ask turtles with [breed != fires and breed != coordinadores] [
       ask coordinadores [
 
-        send-message myself self "Request" "¿APAGO EL FUEGO?";Envío mensaje Request acción. Debe ser contestado con un Agree o un Refuse
+        send-message myself self "Request" "¿Apago el fuego?";Envío mensaje Request acción. Debe ser contestado con un Agree o un Refuse
         process-messages
         set requests2 lput myself requests2
       ]
@@ -1159,7 +1203,10 @@ to proposal-one-min-distance
         send-message myself self "Inform" (word "Coordenadas de puntos de incendio : "focos_incendio"")  ;Envío mensaje Inform
         process-messages
 
-        send-message myself self "Call_for_proposal" "Action: Apagar Fuego. Precondition 1: Estar disponible, Precondition 2: Distacia al fuego"
+        send-message myself self "Request" "¿Distancia mínima a fuego?";Envío mensaje Request.
+        process-messages
+
+        send-message myself self "Call_for_proposal" "Action: Apagar Fuego. Precondition: Estar disponible"
         process-messages
         ask myself [set requests1 lput myself requests1]
       ]
@@ -1178,10 +1225,12 @@ to proposal-one-min-distance
 
             if (disponible = true)[
             send-message elemento myself "Agree" (word "Estoy Disponible ")  ;Envío mensaje Agree con Disponibilidad
-          ]
-          if (disponible = false)[
-            send-message elemento myself "Refuse" (word "No estoy Disponible ")  ;Envío mensaje Agree con Disponibilidad
-          ]
+            process-messages
+            ]
+            if (disponible = false)[
+              send-message elemento myself "Refuse" (word "No estoy Disponible ")  ;Envío mensaje Agree con Disponibilidad
+              process-messages
+            ]
 
           ]
           let distKm floor(dist * 0.666)  ;Distancia en Km
@@ -1201,9 +1250,8 @@ to proposal-one-min-distance
 
   if (finished_messages = false) [
     ask coordinadores [
-      ;;SELECCIONO EL FIRETRUCK CON MEOR DISTANCIA MINIMA A FUEGOS
+      ;;SELECCIONO EL FIRETRUCK CON MENOR DISTANCIA MINIMA A FUEGOS
       let min_dist_tuple first distanceslist
-
 
       foreach distanceslist [
         [element] ->
@@ -1253,7 +1301,7 @@ to distributed-attack
       ask turtles with [breed != fires and breed != coordinadores][
         set foco item index focos_incendio
         set asignacion_fuegos lput (list self foco) asignacion_fuegos ;Lista con fire-truck y foco asignado
-        send-message myself self "Request" (word "Action: Apagar fuego: "index)  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
+        send-message myself self "Request" (word "Action: Apagar fuego: "index" "foco" ")  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
         process-messages
         set index index + 1
         if index = length focos_incendio [set index 0]
@@ -1289,6 +1337,124 @@ to distributed-attack
   ]
 end
 
+to-report distancia-minima-a-puntos [puntos agent]
+  let distancias []
+
+  ; Recorre cada punto en la lista de puntos
+  foreach puntos [
+    ; Calcula la distancia desde la tortuga al punto actual
+    [p] ->
+    let px first p
+    let py last p
+    let d [distancexy px py] of agent
+    ; Agrega la distancia a la lista de distancias
+    set distancias lput d distancias
+  ]
+  ; Devuelve la distancia mínima de la lista de distancias
+  report distancias
+end
+
+to distributed-min-dist
+  let foco list 0 0
+  let index 0
+  let asignacion_fuegos []
+  ;El coordinador envía un mensaje call for proposal a los agentes
+  if finished_messages = false [
+    ask coordinadores [
+      ask turtles with [breed != fires and breed != coordinadores] [
+
+        ;Asignacion focos de incendio más cercanos
+        set foco item index focos_incendio
+        ;Distancia mínima de agente a foco de incendio
+        let minElement min distancia-minima-a-puntos focos_incendio self
+        set index position minElement distancia-minima-a-puntos focos_incendio self
+        set foco item index focos_incendio
+        set asignacion_fuegos lput (list self foco) asignacion_fuegos ;Lista con fire-truck y foco asignado
+
+        ;Envio call for Proposal con foco de incendio asignado
+        send-message myself self  "Call_for_proposal" (word "Action: Apagar Fuego: " index" " foco". Precondition: Estar disponible")
+        process-messages
+        ask myself [set requests1 lput myself requests1]
+      ]
+    ]
+  ]
+
+  ;Todo los agentes envian un inform con su disponibilidad y distancia mínima al coordinor
+    ask coordinadores [
+      if  requests1 != [] [
+        foreach requests1 [ elemento ->
+          let dist 0
+          ask elemento[
+            set dist distance min-one-of fires [distance self] ;Esta es la distancia en casilla al fuego más cercano
+            let distKm floor(dist * 0.666)
+            if apago_fuego = false [set disponible true]
+
+            if (disponible = true)[
+
+              print(word "(coordinador 0):'Agree received from "elemento" with content: Estoy Disponible'")
+              print(word "(coordinador 0):'Inform received from "elemento" with content: Distancia al fuego más cercano: " distKm " Km'")
+            ]
+            if (disponible = false)[
+              print(word "(coordinador 0):'Refuse received from "elemento" with content: No Estoy Disponible'")
+            ]
+          if not member? (list dist elemento) distancesList ;si no está en lista lo añado
+          [
+            set distancesList lput (list dist elemento) distancesList ; set distancesList lput (dist,who) distancesList
+          ]  ; Añadir la distancia a la lista de distancias recibidas
+        ]
+      set requests1 []
+        ]
+      ]
+    ]
+
+  if (finished_messages = false) [
+    ask coordinadores [
+      ;;SELECCIONO EL FIRETRUCK CON MENOR DISTANCIA MINIMA A FUEGOS
+
+      ask turtles with [breed != fires and breed != coordinadores][
+        if(disponible = true and apago_fuego = true)[
+          set foco item index focos_incendio
+          set asignacion_fuegos lput (list self foco) asignacion_fuegos ;Lista con fire-truck y foco asignado
+          send-message myself self "Request" (word "Action: Apagar fuego. ")  ;Envío mensaje Request para que realice la acción apagar fuego (no espera respuesta es una orden)
+          process-messages
+          ask myself [set requests2 lput self requests2]
+        ]
+      ]
+    ]
+      set finished_messages true
+  ]
+
+ ;Envío a cada fire-truck al foco de incendio que le corresponde
+  ask turtles with [breed != fires and breed != coordinadores][  ;firetrucks e hidroaviones
+
+    foreach asignacion_fuegos[ [elemento]->
+      if item 0 elemento = self[
+
+        let foco_xy (item 1 elemento)
+        set target-x item 0 foco_xy
+        set target-y item 1 foco_xy
+      ]
+    ]
+  ]
+  ask turtles with [breed != fires and breed != coordinadores][   ;establezco las coordenadas x, y del foco del fuego a apagar.
+    let x target-x
+    let y target-y
+    let target-fire min-one-of fires [
+      distancexy x y
+    ]
+    if any? fires [
+      face target-fire
+      apagar_fuego
+      check-and-extinguish-fires
+    ]
+  ]
+  if not any? fires [
+    print "No hay fuegos por apagar."
+  ]
+
+end
+
+
 ;; Comprueba si hay un fuego en un radio determinado y lo elimina
 to check-and-extinguish-fires
   if(breed = fire-trucks)[
@@ -1321,7 +1487,7 @@ to check-and-extinguish-fires
           ;;Sumo un fuego extinguido y si supero la capacidad de agua voy a por más agua
           ask myself [
             set fuegos_extinguidos fuegos_extinguidos + 1
-            if fuegos_extinguidos >= Water_Load [
+            if fuegos_extinguidos >= Water-Load [
               set fuegos_extinguidos 0
               set goTo_water true
             ]
@@ -1349,7 +1515,7 @@ to recargar_agua
     print("waterCont-ticks")
     print(waterCont-ticks)
 
-    ifelse waterCont-ticks < Water_Delay - 1[ ;Recargo agua durante WaterDelay ticks
+    ifelse waterCont-ticks < Water-Delay - 1[ ;Recargo agua durante WaterDelay ticks
 
       set recargando_agua true
       fd 0
@@ -1636,7 +1802,7 @@ wind-speed
 wind-speed
 0.01
 50
-15.01
+17.01
 1
 1
 NIL
@@ -1648,7 +1814,7 @@ INPUTBOX
 250
 122
 stoptime
-1440.0
+2880.0
 1
 0
 Number
@@ -1733,27 +1899,16 @@ MONITOR
 135
 388
 180
-Area Quemada (ha)
+Burned Area (ha)
 area
 0
 1
 11
 
-INPUTBOX
-250
-62
-301
-122
-rescale
-1.0
-1
-0
-Number
-
 CHOOSER
 196
 18
-322
+302
 63
 Visualisation
 Visualisation
@@ -1779,9 +1934,9 @@ NIL
 
 INPUTBOX
 7
-558
-200
-618
+547
+215
+607
 folder-name
 Resultados_Galicia
 1
@@ -1790,9 +1945,9 @@ String
 
 BUTTON
 7
-618
-200
-651
+607
+214
+640
 Export interface image
 export-interface (word \"Raster_out/\" folder-name \"/Interface.png\")
 NIL
@@ -1823,10 +1978,10 @@ NIL
 1
 
 MONITOR
-301
-77
-361
-122
+388
+135
+448
+180
 ticks/sec
 performance
 4
@@ -1852,16 +2007,16 @@ Firetrucks-speed
 Firetrucks-speed
 0
 1
-0.7
+0.9
 0.1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-8
+7
 268
-111
+110
 301
 Click-firetruck
 click-firetruck
@@ -1876,13 +2031,13 @@ NIL
 1
 
 CHOOSER
-8
+7
 366
-181
+191
 411
 Estrategy
 Estrategy
-"ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK"
+"ALL_MIN_DIST" "ONE_MIN_DIST" "COORD_ONE_MIN_DIST" "PROP_ONE_MIN_DIST" "DISTRIBUTED_ATTACK" "DISTRIBUTED_MIN_DIST"
 4
 
 SLIDER
@@ -1989,10 +2144,10 @@ NIL
 1
 
 TEXTBOX
-232
-441
-382
-459
+219
+439
+369
+457
 Click firetruck using coordinates
 10
 0.0
@@ -2024,7 +2179,7 @@ Hydroplanes-speed
 Hydroplanes-speed
 0
 2
-1.5
+1.0
 0.1
 1
 NIL
@@ -2055,11 +2210,11 @@ SLIDER
 333
 389
 366
-Water_Delay
-Water_Delay
+Water-Delay
+Water-Delay
 0
 10
-5.0
+3.0
 1
 1
 NIL
@@ -2070,15 +2225,75 @@ SLIDER
 366
 389
 399
-Water_Load
-Water_Load
+Water-Load
+Water-Load
 0
 10
-8.0
+6.0
 1
 1
 NIL
 HORIZONTAL
+
+INPUTBOX
+214
+547
+321
+607
+UTM-X-Hydroplane
+97000
+1
+0
+String
+
+INPUTBOX
+320
+547
+427
+607
+UTM-Y-Hydroplane
+4690545
+1
+0
+String
+
+BUTTON
+214
+606
+427
+640
+Click-hydroplane
+geoCoords-ascCoords-hydroplanes
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+TEXTBOX
+220
+643
+428
+669
+Click hydroplane using coordinates
+10
+0.0
+1
+
+INPUTBOX
+250
+62
+301
+122
+rescale
+2.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
